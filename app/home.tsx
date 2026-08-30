@@ -8,6 +8,8 @@ import {
   View,
 } from "react-native";
 
+import { removeToken } from "../src/storage/auth";
+
 import {
   crearFichaje,
   Fichaje,
@@ -18,6 +20,7 @@ export default function HomeScreen() {
   const [ultimoFichaje, setUltimoFichaje] = useState<Fichaje | null>(null);
   const [loading, setLoading] = useState(true);
   const [fichando, setFichando] = useState(false);
+  const [ahora, setAhora] = useState(new Date());
   const [tipoRealizado, setTipoRealizado] = useState<
     "ENTRADA" | "SALIDA" | null
   >(null);
@@ -59,9 +62,23 @@ export default function HomeScreen() {
     }
   }
 
+async function handleLogout() {
+  await removeToken();
+  router.replace("/login");
+}
+
+
   useEffect(() => {
     cargarUltimoFichaje();
   }, []);
+
+  useEffect(() => {
+  const intervalo = setInterval(() => {
+    setAhora(new Date());
+  }, 1000);
+
+  return () => clearInterval(intervalo);
+}, []);
 
   function formatearHora(fecha: string) {
     return new Date(fecha).toLocaleTimeString("es-ES", {
@@ -116,12 +133,25 @@ export default function HomeScreen() {
         <View>
           <Text style={styles.brand}>SIScentro</Text>
           <Text style={styles.greeting}>{saludo()}</Text>
+          <Text style={styles.clock}>
+  {ahora.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}
+</Text>
+
+<Text style={styles.today}>
+  {ahora.toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  })}
+</Text>
         </View>
 
-        <View style={styles.profile}>
+        <Pressable style={styles.profile} onPress={handleLogout}>
           <Text style={styles.profileText}>👤</Text>
-        </View>
-      </View>
+        </Pressable>
 
       <View style={styles.content}>
         <Text style={styles.question}>¿Qué quieres hacer?</Text>
@@ -497,4 +527,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
   },
+  clock: {
+  fontSize: 42,
+  fontWeight: "800",
+  color: "#111827",
+  marginTop: 18,
+  letterSpacing: -1,
+},
+
+today: {
+  fontSize: 14,
+  color: "#737983",
+  marginTop: 2,
+  textTransform: "capitalize",
+},
 });
