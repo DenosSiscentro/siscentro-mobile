@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberSession, setRememberSession] = useState(true);
 
   async function handleLogin() {
     if (!email.trim() || !password) {
@@ -32,7 +33,9 @@ export default function LoginScreen() {
     try {
       const result = await login(email.trim(), password);
 
-      await saveToken(result.access_token);
+      if (rememberSession) {
+  await saveToken(result.access_token);
+}
 
       router.replace("/home");
     } catch (err: any) {
@@ -98,6 +101,27 @@ export default function LoginScreen() {
               secureTextEntry
             />
           </View>
+
+          <Pressable
+  style={styles.rememberRow}
+  onPress={() => setRememberSession((value) => !value)}
+>
+  <View
+    style={[
+      styles.checkbox,
+      rememberSession && styles.checkboxChecked,
+    ]}
+  >
+    {rememberSession ? (
+      <Text style={styles.checkmark}>✓</Text>
+    ) : null}
+  </View>
+
+  <Text style={styles.rememberText}>
+    Mantener la sesión abierta
+  </Text>
+</Pressable>
+
 
           {error ? (
             <View style={styles.errorBox}>
@@ -285,4 +309,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 28,
   },
+  rememberRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginTop: -2,
+  marginBottom: 18,
+},
+
+checkbox: {
+  width: 22,
+  height: 22,
+  borderRadius: 6,
+  borderWidth: 1.5,
+  borderColor: "#C7CBD2",
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: 10,
+},
+
+checkboxChecked: {
+  backgroundColor: "#111827",
+  borderColor: "#111827",
+},
+
+checkmark: {
+  color: "#FFFFFF",
+  fontSize: 15,
+  fontWeight: "800",
+},
+
+rememberText: {
+  color: "#4B5563",
+  fontSize: 14,
+},
 });

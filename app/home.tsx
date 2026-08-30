@@ -128,33 +128,38 @@ async function handleLogout() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>SIScentro</Text>
-          <Text style={styles.greeting}>{saludo()}</Text>
-          <Text style={styles.clock}>
-  {ahora.toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}
-</Text>
+  <View style={styles.container}>
 
-<Text style={styles.today}>
-  {ahora.toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  })}
-</Text>
-        </View>
+    <View style={styles.header}>
+      <View>
+        <Text style={styles.brand}>SIScentro</Text>
+        <Text style={styles.greeting}>{saludo()}</Text>
 
-        <Pressable style={styles.profile} onPress={handleLogout}>
-          <Text style={styles.profileText}>👤</Text>
-        </Pressable>
+        <Text style={styles.clock}>
+          {ahora.toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
 
-      <View style={styles.content}>
-        <Text style={styles.question}>¿Qué quieres hacer?</Text>
+        <Text style={styles.today}>
+          {ahora.toLocaleDateString("es-ES", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })}
+        </Text>
+      </View>
+
+      <Pressable style={styles.profile} onPress={handleLogout}>
+        <Text style={styles.profileText}>👤</Text>
+      </Pressable>
+    </View>
+
+    <View style={styles.content}>
+      <Text style={styles.question}>¿Qué quieres hacer?</Text>
+
+      {/* resto del contenido */}
 
         <View style={styles.lastCard}>
           <View>

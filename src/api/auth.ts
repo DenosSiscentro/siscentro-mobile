@@ -1,6 +1,6 @@
 import { LoginResponse, Usuario } from "../types/auth";
 
-const API_URL = "http://192.168.10.28:8000/api/v1";
+const API_URL = "https://ncontrol.siscentro.com/api/v1";
 
 export async function login(
   email: string,
