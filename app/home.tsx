@@ -8,13 +8,14 @@ import {
   View,
 } from "react-native";
 
-import { removeToken } from "../src/storage/auth";
+import { getUser, removeToken } from "../src/storage/auth";
 
 import {
   crearFichaje,
   Fichaje,
   getUltimoFichaje,
 } from "../src/api/fichajes";
+import { Usuario } from "../src/types/auth";
 
 export default function HomeScreen() {
   const [ultimoFichaje, setUltimoFichaje] = useState<Fichaje | null>(null);
@@ -25,6 +26,7 @@ export default function HomeScreen() {
     "ENTRADA" | "SALIDA" | null
   >(null);
   const [error, setError] = useState("");
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
 
   async function cargarUltimoFichaje() {
     try {
@@ -69,8 +71,15 @@ async function handleLogout() {
 
 
   useEffect(() => {
-    cargarUltimoFichaje();
-  }, []);
+  cargarUltimoFichaje();
+
+  async function cargarUsuario() {
+    const user = await getUser();
+    setUsuario(user);
+  }
+
+  cargarUsuario();
+}, []);
 
   useEffect(() => {
   const intervalo = setInterval(() => {
@@ -133,7 +142,9 @@ async function handleLogout() {
     <View style={styles.header}>
       <View>
         <Text style={styles.brand}>SIScentro</Text>
-        <Text style={styles.greeting}>{saludo()}</Text>
+        <Text style={styles.greeting}>
+  {saludo()}, {usuario?.nombre || ""}
+</Text>
 
         <Text style={styles.clock}>
           {ahora.toLocaleTimeString("es-ES", {
@@ -149,6 +160,7 @@ async function handleLogout() {
             month: "long",
           })}
         </Text>
+        <Text style={styles.environment}>SIScentro · Producción</Text>
       </View>
 
       <Pressable style={styles.profile} onPress={handleLogout}>
@@ -545,5 +557,11 @@ today: {
   color: "#737983",
   marginTop: 2,
   textTransform: "capitalize",
+},
+
+environment: {
+  fontSize: 11,
+  color: "#9CA3AF",
+  marginTop: 4,
 },
 });

@@ -11,8 +11,9 @@ import {
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
 import { login } from "../src/api/auth";
-import { saveToken } from "../src/storage/auth";
+import { saveToken, saveUser } from "../src/storage/auth";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rememberSession, setRememberSession] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
     if (!email.trim() || !password) {
@@ -32,9 +34,9 @@ export default function LoginScreen() {
 
     try {
       const result = await login(email.trim(), password);
-
       if (rememberSession) {
-  await saveToken(result.access_token);
+        await saveToken(result.access_token);
+        await saveUser(result.user);
 }
 
       router.replace("/home");
@@ -54,7 +56,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.backgroundCircle} />
 
@@ -89,18 +91,29 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>CONTRASEÑA</Text>
+          <View style={styles.passwordContainer}>
+  <TextInput
+    style={styles.passwordInput}
+    placeholder="Tu contraseña"
+    placeholderTextColor="#A0A5AD"
+    value={password}
+    onChangeText={setPassword}
+    secureTextEntry={!showPassword}
+    autoCapitalize="none"
+    autoCorrect={false}
+  />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Tu contraseña"
-              placeholderTextColor="#A0A5AD"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
+  <Pressable
+    style={styles.eyeButton}
+    onPress={() => setShowPassword((value) => !value)}
+  >
+    <Ionicons
+  name={showPassword ? "eye-off-outline" : "eye-outline"}
+  size={22}
+  color="#6B7280"
+/>
+  </Pressable>
+</View>
 
           <Pressable
   style={styles.rememberRow}
@@ -341,5 +354,31 @@ checkmark: {
 rememberText: {
   color: "#4B5563",
   fontSize: 14,
+},
+passwordContainer: {
+  height: 54,
+  backgroundColor: "#F5F6F8",
+  borderRadius: 12,
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+passwordInput: {
+  flex: 1,
+  height: 54,
+  paddingHorizontal: 16,
+  fontSize: 16,
+  color: "#111827",
+},
+
+eyeButton: {
+  height: 54,
+  paddingHorizontal: 14,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+eye: {
+  fontSize: 20,
 },
 });
