@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -64,9 +65,25 @@ export default function HomeScreen() {
     }
   }
 
-async function handleLogout() {
-  await removeToken();
-  router.replace("/login");
+function handleLogout() {
+  Alert.alert(
+    "Cerrar sesión",
+    "¿Quieres cerrar tu sesión en Siscentro?",
+    [
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
+      {
+        text: "Cerrar sesión",
+        style: "destructive",
+        onPress: async () => {
+          await removeToken();
+          router.replace("/login");
+        },
+      },
+    ]
+  );
 }
 
 
@@ -103,6 +120,37 @@ async function handleLogout() {
     if (hora < 20) return "Buenas tardes";
     return "Buenas noches";
   }
+
+function formatearFechaFichaje(fecha: string) {
+  const fechaFichaje = new Date(fecha);
+  const hoy = new Date();
+
+  const mismoDia =
+    fechaFichaje.getDate() === hoy.getDate() &&
+    fechaFichaje.getMonth() === hoy.getMonth() &&
+    fechaFichaje.getFullYear() === hoy.getFullYear();
+
+  if (mismoDia) {
+    return "Hoy";
+  }
+
+  const ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+
+  const esAyer =
+    fechaFichaje.getDate() === ayer.getDate() &&
+    fechaFichaje.getMonth() === ayer.getMonth() &&
+    fechaFichaje.getFullYear() === ayer.getFullYear();
+
+  if (esAyer) {
+    return "Ayer";
+  }
+
+  return fechaFichaje.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "short",
+  });
+}
 
   if (loading) {
     return (
@@ -184,8 +232,9 @@ async function handleLogout() {
                 </Text>
 
                 <Text style={styles.lastDate}>
-                  Hoy · {formatearHora(ultimoFichaje.fecha_hora)}
-                </Text>
+  {formatearFechaFichaje(ultimoFichaje.fecha_hora)} ·{" "}
+  {formatearHora(ultimoFichaje.fecha_hora)}
+</Text>
               </>
             ) : (
               <Text style={styles.noLast}>

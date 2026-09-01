@@ -1,4 +1,4 @@
-import { getToken } from "../storage/auth";
+import { authenticatedFetch } from "./client";
 
 const API_URL = "https://ncontrol.siscentro.com/api/v1";
 
@@ -22,19 +22,8 @@ interface FichajesResponse {
 }
 
 export async function getUltimoFichaje(): Promise<Fichaje | null> {
-  const token = await getToken();
-
-  if (!token) {
-    throw new Error("No hay sesión");
-  }
-
-  const response = await fetch(
-    `${API_URL}/fichajes?page=1&page_size=1`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+  const response = await authenticatedFetch(
+    "/fichajes?page=1&page_size=1"
   );
 
   if (!response.ok) {
@@ -49,22 +38,15 @@ export async function getUltimoFichaje(): Promise<Fichaje | null> {
 export async function crearFichaje(
   tipo: "ENTRADA" | "SALIDA"
 ): Promise<Fichaje> {
-  const token = await getToken();
-
-  if (!token) {
-    throw new Error("No hay sesión");
-  }
-
-  const response = await fetch(`${API_URL}/fichajes/movil`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      tipo,
-    }),
-  });
+  const response = await authenticatedFetch(
+    "/fichajes/movil",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        tipo,
+      }),
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
