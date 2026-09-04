@@ -9,13 +9,12 @@ import {
   View,
 } from "react-native";
 
-import { getUser, removeToken } from "../src/storage/auth";
-
 import {
   crearFichaje,
   Fichaje,
   getUltimoFichaje,
 } from "../src/api/fichajes";
+import { getUser, logout } from "../src/storage/auth";
 import { Usuario } from "../src/types/auth";
 
 export default function HomeScreen() {
@@ -78,14 +77,14 @@ function handleLogout() {
         text: "Cerrar sesión",
         style: "destructive",
         onPress: async () => {
-          await removeToken();
+          await logout();
+          
           router.replace("/login");
         },
       },
     ]
   );
 }
-
 
   useEffect(() => {
   cargarUltimoFichaje();

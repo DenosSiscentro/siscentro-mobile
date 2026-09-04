@@ -41,12 +41,16 @@
         }
       ],
       "expo-secure-store",
-  [
-    "expo-local-authentication",
-    {
-      "faceIDPermission": "Permite a Siscentro utilizar Face ID para acceder a tu cuenta."
-    }
-  ]
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite a Siscentro utilizar Face ID para acceder a tu cuenta."
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

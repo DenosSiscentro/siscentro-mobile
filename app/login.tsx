@@ -19,8 +19,9 @@ import { login } from "../src/api/auth";
 
 import {
   getBiometricToken,
-  getUser,
+  getBiometricUser,
   isBiometricEnabled,
+  saveBiometricSession,
   saveToken,
   saveUser,
   setBiometricEnabled,
@@ -82,7 +83,9 @@ export default function LoginScreen() {
       }
 
 const token = await getBiometricToken();
-const user = await getUser();
+const user = await getBiometricUser();
+
+
 
 if (!token || !user) {
   setError(
@@ -196,9 +199,14 @@ router.replace("/home");
                     );
 
                   if (biometricResult.success) {
-                    await setBiometricEnabled(true);
-                    setBiometricEnabledState(true);
-                  }
+  await saveBiometricSession(
+    result.access_token,
+    result.user
+  );
+
+  await setBiometricEnabled(true);
+  setBiometricEnabledState(true);
+}
                 } catch (err) {
                   console.error(
                     "Error activando biometría:",
