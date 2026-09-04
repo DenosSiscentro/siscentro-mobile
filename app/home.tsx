@@ -1,3 +1,4 @@
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-
 import {
   crearFichaje,
   Fichaje,
@@ -27,7 +27,7 @@ export default function HomeScreen() {
   >(null);
   const [error, setError] = useState("");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-
+const [usarGps, setUsarGps] = useState(true);
   async function cargarUltimoFichaje() {
     try {
       setError("");
@@ -43,12 +43,38 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleFichaje(tipo: "ENTRADA" | "SALIDA") {
-    try {
-      setFichando(true);
-      setError("");
+async function handleFichaje(tipo: "ENTRADA" | "SALIDA") {
+  try {
+    setFichando(true);
+    setError("");
 
-      const fichaje = await crearFichaje(tipo);
+    let latitud: number | null = null;
+let longitud: number | null = null;
+
+if (usarGps) {
+  const { status } =
+    await Location.requestForegroundPermissionsAsync();
+
+  if (status !== Location.PermissionStatus.GRANTED) {
+    setError(
+      "Necesitamos permiso de ubicación para registrar el fichaje con GPS"
+    );
+    return;
+  }
+
+  const location = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.High,
+  });
+
+  latitud = location.coords.latitude;
+  longitud = location.coords.longitude;
+}
+
+const fichaje = await crearFichaje(
+  tipo,
+  latitud,
+  longitud
+);
 
       setUltimoFichaje(fichaje);
       setTipoRealizado(tipo);
@@ -217,7 +243,37 @@ function formatearFechaFichaje(fecha: string) {
 
     <View style={styles.content}>
       <Text style={styles.question}>¿Qué quieres hacer?</Text>
+<Pressable
+  style={styles.gpsOption}
+  onPress={() => setUsarGps((valor) => !valor)}
+>
+  <View style={styles.gpsInfo}>
+    <Text style={styles.gpsIcon}>📍</Text>
 
+    <View>
+      <Text style={styles.gpsTitle}>Ubicación GPS</Text>
+      <Text style={styles.gpsSubtitle}>
+        {usarGps
+          ? "Se enviará tu posición al fichar"
+          : "No se enviará tu posición"}
+      </Text>
+    </View>
+  </View>
+
+  <View
+    style={[
+      styles.gpsSwitch,
+      usarGps && styles.gpsSwitchActive,
+    ]}
+  >
+    <View
+      style={[
+        styles.gpsSwitchThumb,
+        usarGps && styles.gpsSwitchThumbActive,
+      ]}
+    />
+  </View>
+</Pressable>
       {/* resto del contenido */}
 
         <View style={styles.lastCard}>
@@ -335,6 +391,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+      transform: [{ translateY: -8 }],
+
   },
 
   header: {
@@ -611,5 +669,60 @@ environment: {
   fontSize: 11,
   color: "#9CA3AF",
   marginTop: 4,
+},
+gpsOption: {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 18,
+  padding: 16,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 18,
+},
+
+gpsInfo: {
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+gpsIcon: {
+  fontSize: 22,
+  marginRight: 12,
+},
+
+gpsTitle: {
+  fontSize: 15,
+  fontWeight: "700",
+  color: "#111827",
+},
+
+gpsSubtitle: {
+  fontSize: 12,
+  color: "#737983",
+  marginTop: 3,
+},
+
+gpsSwitch: {
+  width: 48,
+  height: 28,
+  borderRadius: 14,
+  backgroundColor: "#D1D5DB",
+  padding: 3,
+  justifyContent: "center",
+},
+
+gpsSwitchActive: {
+  backgroundColor: "#22C55E",
+},
+
+gpsSwitchThumb: {
+  width: 22,
+  height: 22,
+  borderRadius: 11,
+  backgroundColor: "#FFFFFF",
+},
+
+gpsSwitchThumbActive: {
+  alignSelf: "flex-end",
 },
 });

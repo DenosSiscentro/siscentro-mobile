@@ -102,6 +102,4 @@ export async function logout() {
 
   await SecureStore.deleteItemAsync(TOKEN_KEY);
   await SecureStore.deleteItemAsync(USER_KEY);
-
-  await clearBiometricSession();
 }

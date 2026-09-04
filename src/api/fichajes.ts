@@ -36,7 +36,9 @@ export async function getUltimoFichaje(): Promise<Fichaje | null> {
 }
 
 export async function crearFichaje(
-  tipo: "ENTRADA" | "SALIDA"
+  tipo: "ENTRADA" | "SALIDA",
+  latitud: number | null,
+  longitud: number | null
 ): Promise<Fichaje> {
   const response = await authenticatedFetch(
     "/fichajes/movil",
@@ -44,6 +46,8 @@ export async function crearFichaje(
       method: "POST",
       body: JSON.stringify({
         tipo,
+        latitud,
+        longitud,
       }),
     }
   );
