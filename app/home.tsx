@@ -27,7 +27,8 @@ export default function HomeScreen() {
   >(null);
   const [error, setError] = useState("");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-const [usarGps, setUsarGps] = useState(true);
+  const [usarGps, setUsarGps] = useState(true);
+
   async function cargarUltimoFichaje() {
     try {
       setError("");
@@ -43,38 +44,38 @@ const [usarGps, setUsarGps] = useState(true);
     }
   }
 
-async function handleFichaje(tipo: "ENTRADA" | "SALIDA") {
-  try {
-    setFichando(true);
-    setError("");
+  async function handleFichaje(tipo: "ENTRADA" | "SALIDA") {
+    try {
+      setFichando(true);
+      setError("");
 
-    let latitud: number | null = null;
-let longitud: number | null = null;
+      let latitud: number | null = null;
+      let longitud: number | null = null;
 
-if (usarGps) {
-  const { status } =
-    await Location.requestForegroundPermissionsAsync();
+      if (usarGps) {
+        const { status } =
+          await Location.requestForegroundPermissionsAsync();
 
-  if (status !== Location.PermissionStatus.GRANTED) {
-    setError(
-      "Necesitamos permiso de ubicación para registrar el fichaje con GPS"
-    );
-    return;
-  }
+        if (status !== Location.PermissionStatus.GRANTED) {
+          setError(
+            "Necesitamos permiso de ubicación para registrar el fichaje con GPS"
+          );
+          return;
+        }
 
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High,
-  });
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
 
-  latitud = location.coords.latitude;
-  longitud = location.coords.longitude;
-}
+        latitud = location.coords.latitude;
+        longitud = location.coords.longitude;
+      }
 
-const fichaje = await crearFichaje(
-  tipo,
-  latitud,
-  longitud
-);
+      const fichaje = await crearFichaje(
+        tipo,
+        latitud,
+        longitud
+      );
 
       setUltimoFichaje(fichaje);
       setTipoRealizado(tipo);
@@ -90,46 +91,46 @@ const fichaje = await crearFichaje(
     }
   }
 
-function handleLogout() {
-  Alert.alert(
-    "Cerrar sesión",
-    "¿Quieres cerrar tu sesión en Siscentro?",
-    [
-      {
-        text: "Cancelar",
-        style: "cancel",
-      },
-      {
-        text: "Cerrar sesión",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          
-          router.replace("/login");
+  function handleLogout() {
+    Alert.alert(
+      "Cerrar sesión",
+      "¿Quieres cerrar tu sesión en Siscentro?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
         },
-      },
-    ]
-  );
-}
+        {
+          text: "Cerrar sesión",
+          style: "destructive",
+          onPress: async () => {
+            await logout();
 
-  useEffect(() => {
-  cargarUltimoFichaje();
-
-  async function cargarUsuario() {
-    const user = await getUser();
-    setUsuario(user);
+            router.replace("/login");
+          },
+        },
+      ]
+    );
   }
 
-  cargarUsuario();
-}, []);
+  useEffect(() => {
+    cargarUltimoFichaje();
+
+    async function cargarUsuario() {
+      const user = await getUser();
+      setUsuario(user);
+    }
+
+    cargarUsuario();
+  }, []);
 
   useEffect(() => {
-  const intervalo = setInterval(() => {
-    setAhora(new Date());
-  }, 1000);
+    const intervalo = setInterval(() => {
+      setAhora(new Date());
+    }, 1000);
 
-  return () => clearInterval(intervalo);
-}, []);
+    return () => clearInterval(intervalo);
+  }, []);
 
   function formatearHora(fecha: string) {
     return new Date(fecha).toLocaleTimeString("es-ES", {
@@ -146,36 +147,36 @@ function handleLogout() {
     return "Buenas noches";
   }
 
-function formatearFechaFichaje(fecha: string) {
-  const fechaFichaje = new Date(fecha);
-  const hoy = new Date();
+  function formatearFechaFichaje(fecha: string) {
+    const fechaFichaje = new Date(fecha);
+    const hoy = new Date();
 
-  const mismoDia =
-    fechaFichaje.getDate() === hoy.getDate() &&
-    fechaFichaje.getMonth() === hoy.getMonth() &&
-    fechaFichaje.getFullYear() === hoy.getFullYear();
+    const mismoDia =
+      fechaFichaje.getDate() === hoy.getDate() &&
+      fechaFichaje.getMonth() === hoy.getMonth() &&
+      fechaFichaje.getFullYear() === hoy.getFullYear();
 
-  if (mismoDia) {
-    return "Hoy";
+    if (mismoDia) {
+      return "Hoy";
+    }
+
+    const ayer = new Date();
+    ayer.setDate(hoy.getDate() - 1);
+
+    const esAyer =
+      fechaFichaje.getDate() === ayer.getDate() &&
+      fechaFichaje.getMonth() === ayer.getMonth() &&
+      fechaFichaje.getFullYear() === ayer.getFullYear();
+
+    if (esAyer) {
+      return "Ayer";
+    }
+
+    return fechaFichaje.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    });
   }
-
-  const ayer = new Date();
-  ayer.setDate(hoy.getDate() - 1);
-
-  const esAyer =
-    fechaFichaje.getDate() === ayer.getDate() &&
-    fechaFichaje.getMonth() === ayer.getMonth() &&
-    fechaFichaje.getFullYear() === ayer.getFullYear();
-
-  if (esAyer) {
-    return "Ayer";
-  }
-
-  return fechaFichaje.toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "short",
-  });
-}
 
   if (loading) {
     return (
@@ -210,75 +211,89 @@ function formatearFechaFichaje(fecha: string) {
   }
 
   return (
-  <View style={styles.container}>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.brand}>SIScentro</Text>
 
-    <View style={styles.header}>
-      <View>
-        <Text style={styles.brand}>SIScentro</Text>
-        <Text style={styles.greeting}>
-  {saludo()}, {usuario?.nombre || ""}
-</Text>
+          <Text style={styles.greeting}>
+            {saludo()}, {usuario?.nombre || ""}
+          </Text>
 
-        <Text style={styles.clock}>
-          {ahora.toLocaleTimeString("es-ES", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
+          <Text style={styles.clock}>
+            {ahora.toLocaleTimeString("es-ES", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
 
-        <Text style={styles.today}>
-          {ahora.toLocaleDateString("es-ES", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </Text>
-        <Text style={styles.environment}>SIScentro · Producción</Text>
+          <Text style={styles.today}>
+            {ahora.toLocaleDateString("es-ES", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </Text>
+
+          <Text style={styles.environment}>
+            SIScentro · Producción
+          </Text>
+        </View>
+
+        <Pressable
+          style={styles.profile}
+          onPress={handleLogout}
+        >
+          <Text style={styles.profileText}>👤</Text>
+        </Pressable>
       </View>
 
-      <Pressable style={styles.profile} onPress={handleLogout}>
-        <Text style={styles.profileText}>👤</Text>
-      </Pressable>
-    </View>
+      <View style={styles.content}>
+        <Text style={styles.question}>
+          ¿Qué quieres hacer?
+        </Text>
 
-    <View style={styles.content}>
-      <Text style={styles.question}>¿Qué quieres hacer?</Text>
-<Pressable
-  style={styles.gpsOption}
-  onPress={() => setUsarGps((valor) => !valor)}
->
-  <View style={styles.gpsInfo}>
-    <Text style={styles.gpsIcon}>📍</Text>
+        <Pressable
+          style={styles.gpsOption}
+          onPress={() => setUsarGps((valor) => !valor)}
+        >
+          <View style={styles.gpsInfo}>
+            <Text style={styles.gpsIcon}>📍</Text>
 
-    <View>
-      <Text style={styles.gpsTitle}>Ubicación GPS</Text>
-      <Text style={styles.gpsSubtitle}>
-        {usarGps
-          ? "Se enviará tu posición al fichar"
-          : "No se enviará tu posición"}
-      </Text>
-    </View>
-  </View>
+            <View>
+              <Text style={styles.gpsTitle}>
+                Ubicación GPS
+              </Text>
 
-  <View
-    style={[
-      styles.gpsSwitch,
-      usarGps && styles.gpsSwitchActive,
-    ]}
-  >
-    <View
-      style={[
-        styles.gpsSwitchThumb,
-        usarGps && styles.gpsSwitchThumbActive,
-      ]}
-    />
-  </View>
-</Pressable>
-      {/* resto del contenido */}
+              <Text style={styles.gpsSubtitle}>
+                {usarGps
+                  ? "Se enviará tu posición al fichar"
+                  : "No se enviará tu posición"}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.gpsSwitch,
+              usarGps && styles.gpsSwitchActive,
+            ]}
+          >
+            <View
+              style={[
+                styles.gpsSwitchThumb,
+                usarGps &&
+                  styles.gpsSwitchThumbActive,
+              ]}
+            />
+          </View>
+        </Pressable>
 
         <View style={styles.lastCard}>
           <View>
-            <Text style={styles.lastLabel}>ÚLTIMO FICHAJE</Text>
+            <Text style={styles.lastLabel}>
+              ÚLTIMO FICHAJE
+            </Text>
 
             {ultimoFichaje ? (
               <>
@@ -287,9 +302,14 @@ function formatearFechaFichaje(fecha: string) {
                 </Text>
 
                 <Text style={styles.lastDate}>
-  {formatearFechaFichaje(ultimoFichaje.fecha_hora)} ·{" "}
-  {formatearHora(ultimoFichaje.fecha_hora)}
-</Text>
+                  {formatearFechaFichaje(
+                    ultimoFichaje.fecha_hora
+                  )}{" "}
+                  ·{" "}
+                  {formatearHora(
+                    ultimoFichaje.fecha_hora
+                  )}
+                </Text>
               </>
             ) : (
               <Text style={styles.noLast}>
@@ -307,7 +327,9 @@ function formatearFechaFichaje(fecha: string) {
           />
         </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : null}
 
         <Pressable
           style={({ pressed }) => [
@@ -324,7 +346,10 @@ function formatearFechaFichaje(fecha: string) {
           </View>
 
           <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>ENTRADA</Text>
+            <Text style={styles.actionTitle}>
+              ENTRADA
+            </Text>
+
             <Text style={styles.actionSubtitle}>
               Registrar entrada
             </Text>
@@ -348,7 +373,10 @@ function formatearFechaFichaje(fecha: string) {
           </View>
 
           <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>SALIDA</Text>
+            <Text style={styles.actionTitle}>
+              SALIDA
+            </Text>
+
             <Text style={styles.actionSubtitle}>
               Registrar salida
             </Text>
@@ -357,25 +385,55 @@ function formatearFechaFichaje(fecha: string) {
           <Text style={styles.actionArrow}>›</Text>
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.historyButton,
-            pressed && styles.historyPressed,
-          ]}
-          onPress={() => router.push("/historial")}
-        >
-          <Text style={styles.historyIcon}>☷</Text>
-          <Text style={styles.historyText}>Ver mis fichajes</Text>
-          <Text style={styles.historyArrow}>›</Text>
-        </Pressable>
-      </View>
+        <View style={styles.actionsContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.historyButton,
+              pressed && styles.historyPressed,
+            ]}
+            onPress={() => router.push("/historial")}
+          >
+            <Text style={styles.historyIcon}>☷</Text>
 
-      {fichando && (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.overlayText}>Registrando...</Text>
+            <Text style={styles.historyText}>
+              Ver mis fichajes
+            </Text>
+
+            <Text style={styles.historyArrow}>›</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.historyButton,
+              pressed && styles.historyPressed,
+            ]}
+            onPress={() =>
+              router.push("/recordatorios")
+            }
+          >
+            <Text style={styles.historyIcon}>🔔</Text>
+
+            <Text style={styles.historyText}>
+              Mis recordatorios
+            </Text>
+
+            <Text style={styles.historyArrow}>›</Text>
+          </Pressable>
         </View>
-      )}
+
+        {fichando && (
+          <View style={styles.overlay}>
+            <ActivityIndicator
+              size="large"
+              color="#FFFFFF"
+            />
+
+            <Text style={styles.overlayText}>
+              Registrando...
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -391,8 +449,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-      transform: [{ translateY: -8 }],
-
+    transform: [{ translateY: -8 }],
   },
 
   header: {
@@ -549,6 +606,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
+  actionsContainer: {
+    gap: 10,
+  },
+
   historyButton: {
     height: 58,
     borderRadius: 17,
@@ -650,79 +711,81 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
   },
+
   clock: {
-  fontSize: 42,
-  fontWeight: "800",
-  color: "#111827",
-  marginTop: 18,
-  letterSpacing: -1,
-},
+    fontSize: 42,
+    fontWeight: "800",
+    color: "#111827",
+    marginTop: 18,
+    letterSpacing: -1,
+  },
 
-today: {
-  fontSize: 14,
-  color: "#737983",
-  marginTop: 2,
-  textTransform: "capitalize",
-},
+  today: {
+    fontSize: 14,
+    color: "#737983",
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
 
-environment: {
-  fontSize: 11,
-  color: "#9CA3AF",
-  marginTop: 4,
-},
-gpsOption: {
-  backgroundColor: "#FFFFFF",
-  borderRadius: 18,
-  padding: 16,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 18,
-},
+  environment: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 4,
+  },
 
-gpsInfo: {
-  flexDirection: "row",
-  alignItems: "center",
-},
+  gpsOption: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
 
-gpsIcon: {
-  fontSize: 22,
-  marginRight: 12,
-},
+  gpsInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
 
-gpsTitle: {
-  fontSize: 15,
-  fontWeight: "700",
-  color: "#111827",
-},
+  gpsIcon: {
+    fontSize: 22,
+    marginRight: 12,
+  },
 
-gpsSubtitle: {
-  fontSize: 12,
-  color: "#737983",
-  marginTop: 3,
-},
+  gpsTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
 
-gpsSwitch: {
-  width: 48,
-  height: 28,
-  borderRadius: 14,
-  backgroundColor: "#D1D5DB",
-  padding: 3,
-  justifyContent: "center",
-},
+  gpsSubtitle: {
+    fontSize: 12,
+    color: "#737983",
+    marginTop: 3,
+  },
 
-gpsSwitchActive: {
-  backgroundColor: "#22C55E",
-},
+  gpsSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#D1D5DB",
+    padding: 3,
+    justifyContent: "center",
+  },
 
-gpsSwitchThumb: {
-  width: 22,
-  height: 22,
-  borderRadius: 11,
-  backgroundColor: "#FFFFFF",
-},
+  gpsSwitchActive: {
+    backgroundColor: "#22C55E",
+  },
 
-gpsSwitchThumbActive: {
-  alignSelf: "flex-end",
-},
+  gpsSwitchThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
+  },
+
+  gpsSwitchThumbActive: {
+    alignSelf: "flex-end",
+  },
 });

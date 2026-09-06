@@ -25,6 +25,12 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+  name="recordatorios"
+  options={{
+    headerShown: false,
+  }}
+/>
       </Stack>
     </SafeAreaProvider>
   );
