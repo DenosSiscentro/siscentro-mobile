@@ -1,6 +1,8 @@
- import * as Notifications from "expo-notifications";
+import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+
+import { getUser } from "./auth";
 
 export interface Recordatorio {
   id: string;
@@ -12,45 +14,78 @@ export interface Recordatorio {
   notificationIds: string[];
 }
 
-const KEY = "siscentro_recordatorios";
 const CHANNEL_ID = "siscentro-recordatorios";
 
+/*
+ * Cada trabajador tendrá sus propios recordatorios.
+ *
+ * Ejemplo:
+ * siscentro_recordatorios_6
+ * siscentro_recordatorios_7
+ */
+function obtenerStorageKey(usuarioId: number) {
+  return `siscentro_recordatorios_${usuarioId}`;
+}
+
 /**
- * Configura el canal de notificaciones en Android
- * y solicita permiso al usuario.
+ * Configura las notificaciones del dispositivo.
  */
 export async function configurarNotificaciones() {
   if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: "Recordatorios de fichaje",
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      sound: "default",
-    });
+    await Notifications.setNotificationChannelAsync(
+      CHANNEL_ID,
+      {
+        name: "Recordatorios de fichaje",
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: "default",
+      }
+    );
   }
 
-  const permissions = await Notifications.getPermissionsAsync();
+  const permissions =
+    await Notifications.getPermissionsAsync();
 
   if (!permissions.granted) {
-    const requested = await Notifications.requestPermissionsAsync({
-      ios: {
-        allowAlert: true,
-        allowBadge: false,
-        allowSound: true,
-      },
-    });
+    const requested =
+      await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: false,
+          allowSound: true,
+        },
+      });
 
     if (!requested.granted) {
-      throw new Error("NOTIFICATIONS_PERMISSION_DENIED");
+      throw new Error(
+        "NOTIFICATIONS_PERMISSION_DENIED"
+      );
     }
   }
 }
 
 /**
- * Carga todos los recordatorios guardados en el dispositivo.
+ * Obtiene el ID del usuario actualmente conectado.
+ */
+async function obtenerUsuarioId(): Promise<number> {
+  const usuario = await getUser();
+
+  if (!usuario) {
+    throw new Error("NO_USER_SESSION");
+  }
+
+  return usuario.id;
+}
+
+/**
+ * Carga los recordatorios del trabajador actual.
  */
 async function cargar(): Promise<Recordatorio[]> {
-  const data = await SecureStore.getItemAsync(KEY);
+  const usuarioId = await obtenerUsuarioId();
+
+  const key = obtenerStorageKey(usuarioId);
+
+  const data = await SecureStore.getItemAsync(key);
 
   if (!data) {
     return [];
@@ -64,27 +99,38 @@ async function cargar(): Promise<Recordatorio[]> {
 }
 
 /**
- * Guarda todos los recordatorios en SecureStore.
+ * Guarda los recordatorios del trabajador actual.
  */
-async function guardar(recordatorios: Recordatorio[]) {
-  await SecureStore.setItemAsync(KEY, JSON.stringify(recordatorios));
+async function guardar(
+  recordatorios: Recordatorio[]
+) {
+  const usuarioId = await obtenerUsuarioId();
+
+  const key = obtenerStorageKey(usuarioId);
+
+  await SecureStore.setItemAsync(
+    key,
+    JSON.stringify(recordatorios)
+  );
 }
 
 /**
- * Genera un identificador único para cada recordatorio.
+ * Genera un ID único para cada recordatorio.
  */
 function crearId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
 }
 
 /**
- * Programa las notificaciones correspondientes a un recordatorio.
- *
- * Se crea una notificación independiente para cada día seleccionado.
+ * Programa las notificaciones semanales de un recordatorio.
  */
-
 async function programar(
-  recordatorio: Omit<Recordatorio, "notificationIds">
+  recordatorio: Omit<
+    Recordatorio,
+    "notificationIds"
+  >
 ) {
   const notificationIds: string[] = [];
 
@@ -103,11 +149,17 @@ async function programar(
               recordatorioId: recordatorio.id,
             },
           },
+
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            type:
+              Notifications
+                .SchedulableTriggerInputTypes
+                .WEEKLY,
+
             weekday: dia,
             hour: recordatorio.hora,
             minute: recordatorio.minuto,
+
             channelId: CHANNEL_ID,
           },
         });
@@ -123,8 +175,13 @@ async function programar(
               recordatorioId: recordatorio.id,
             },
           },
+
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+            type:
+              Notifications
+                .SchedulableTriggerInputTypes
+                .CALENDAR,
+
             weekday: dia,
             hour: recordatorio.hora,
             minute: recordatorio.minuto,
@@ -139,14 +196,17 @@ async function programar(
 }
 
 /**
- * Obtiene todos los recordatorios.
+ * Devuelve todos los recordatorios
+ * pertenecientes al trabajador actual.
  */
-export async function getRecordatorios(): Promise<Recordatorio[]> {
+export async function getRecordatorios(): Promise<
+  Recordatorio[]
+> {
   return cargar();
 }
 
 /**
- * Crea un nuevo recordatorio y programa sus notificaciones.
+ * Crea un nuevo recordatorio.
  */
 export async function crearRecordatorio(
   nombre: string,
@@ -158,14 +218,21 @@ export async function crearRecordatorio(
 
   const recordatorioBase = {
     id: crearId(),
-    nombre: nombre.trim() || "Recordatorio de fichaje",
+
+    nombre:
+      nombre.trim() ||
+      "Recordatorio de fichaje",
+
     hora,
     minuto,
-    dias,
+
+    dias: [...dias],
+
     activo: true,
   };
 
-  const notificationIds = await programar(recordatorioBase);
+  const notificationIds =
+    await programar(recordatorioBase);
 
   const recordatorio: Recordatorio = {
     ...recordatorioBase,
@@ -182,9 +249,12 @@ export async function crearRecordatorio(
 }
 
 /**
- * Elimina completamente un recordatorio.
+ * Elimina un recordatorio y todas sus
+ * notificaciones programadas.
  */
-export async function eliminarRecordatorio(id: string) {
+export async function eliminarRecordatorio(
+  id: string
+) {
   const recordatorios = await cargar();
 
   const recordatorio = recordatorios.find(
@@ -192,20 +262,30 @@ export async function eliminarRecordatorio(id: string) {
   );
 
   if (recordatorio) {
-    for (const notificationId of recordatorio.notificationIds) {
+    for (const notificationId of
+      recordatorio.notificationIds) {
       await Notifications.cancelScheduledNotificationAsync(
         notificationId
       );
     }
   }
 
-  await guardar(
-    recordatorios.filter((item) => item.id !== id)
-  );
+  const nuevosRecordatorios =
+    recordatorios.filter(
+      (item) => item.id !== id
+    );
+
+  await guardar(nuevosRecordatorios);
 }
 
 /**
  * Activa o desactiva un recordatorio.
+ *
+ * Al desactivarlo:
+ * - cancela las notificaciones existentes.
+ *
+ * Al activarlo:
+ * - vuelve a programarlas.
  */
 export async function cambiarEstadoRecordatorio(
   id: string,
@@ -221,14 +301,21 @@ export async function cambiarEstadoRecordatorio(
     return;
   }
 
-  // Primero cancelamos las notificaciones actuales.
-  for (const notificationId of recordatorio.notificationIds) {
+  /*
+   * Primero cancelamos las notificaciones
+   * actualmente programadas.
+   */
+  for (const notificationId of
+    recordatorio.notificationIds) {
     await Notifications.cancelScheduledNotificationAsync(
       notificationId
     );
   }
 
-  // Si se activa, volvemos a programarlas.
+  /*
+   * Si se vuelve a activar, programamos
+   * nuevamente todas sus notificaciones.
+   */
   if (activo) {
     recordatorio.notificationIds =
       await programar(recordatorio);
@@ -242,14 +329,17 @@ export async function cambiarEstadoRecordatorio(
 }
 
 /**
- * Cancela todas las notificaciones programadas
- * de todos los recordatorios.
+ * Cancela todas las notificaciones de los
+ * recordatorios del trabajador actual.
+ *
+ * No elimina los recordatorios almacenados.
  */
 export async function cancelarTodosLosRecordatorios() {
   const recordatorios = await cargar();
 
   for (const recordatorio of recordatorios) {
-    for (const notificationId of recordatorio.notificationIds) {
+    for (const notificationId of
+      recordatorio.notificationIds) {
       await Notifications.cancelScheduledNotificationAsync(
         notificationId
       );
