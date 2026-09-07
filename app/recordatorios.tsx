@@ -1,9 +1,11 @@
+import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,10 +19,10 @@ import {
   cambiarEstadoRecordatorio,
   crearRecordatorio,
   eliminarRecordatorio,
-  getRecordatorios,
+  obtenerRecordatorios,
   Recordatorio,
 } from "../src/storage/recordatorios";
-
+import { colors } from "../src/theme";
 const DIAS = [
   { numero: 2, nombre: "L" },
   { numero: 3, nombre: "M" },
@@ -32,13 +34,26 @@ const DIAS = [
 ];
 
 export default function RecordatoriosScreen() {
-  const [recordatorios, setRecordatorios] = useState<Recordatorio[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [recordatorios, setRecordatorios] =
+    useState<Recordatorio[]>([]);
 
-  const [nombre, setNombre] = useState("");
-  const [hora, setHora] = useState(new Date());
-  const [dias, setDias] = useState<number[]>([2, 3, 4, 5, 6]);
-  const [guardando, setGuardando] = useState(false);
+  const [modalVisible, setModalVisible] =
+    useState(false);
+
+  const [nombre, setNombre] =
+    useState("");
+
+  const [hora, setHora] =
+    useState(new Date());
+
+  const [mostrarPicker, setMostrarPicker] =
+    useState(false);
+
+  const [dias, setDias] =
+    useState<number[]>([2, 3, 4, 5, 6]);
+
+  const [guardando, setGuardando] =
+    useState(false);
 
   useEffect(() => {
     cargarRecordatorios();
@@ -46,10 +61,15 @@ export default function RecordatoriosScreen() {
 
   async function cargarRecordatorios() {
     try {
-      const datos = await getRecordatorios();
+      const datos =
+        await obtenerRecordatorios();
+
       setRecordatorios(datos);
     } catch (error) {
-      console.error("Error cargando recordatorios:", error);
+      console.error(
+        "Error cargando recordatorios:",
+        error
+      );
     }
   }
 
@@ -57,21 +77,49 @@ export default function RecordatoriosScreen() {
     setNombre("");
     setHora(new Date());
     setDias([2, 3, 4, 5, 6]);
+    setMostrarPicker(false);
     setModalVisible(true);
   }
 
   function alternarDia(numero: number) {
     setDias((actuales) => {
       if (actuales.includes(numero)) {
-        return actuales.filter((dia) => dia !== numero);
+        return actuales.filter(
+          (dia) => dia !== numero
+        );
       }
 
       return [...actuales, numero];
     });
   }
 
+  function manejarSeleccionHora(
+    _evento: unknown,
+    fechaSeleccionada?: Date
+  ) {
+    if (!fechaSeleccionada) {
+      return;
+    }
+
+    setHora(fechaSeleccionada);
+
+    if (Platform.OS === "android") {
+      setMostrarPicker(false);
+    }
+  }
+
+  function manejarCierrePicker() {
+    // El usuario canceló el diálogo (Android): no tocamos "hora".
+    setMostrarPicker(false);
+  }
+
   async function guardarNuevoRecordatorio() {
-    if (!nombre.trim()) {
+    const nombreSeguro =
+      typeof nombre === "string"
+        ? nombre.trim()
+        : "";
+
+    if (!nombreSeguro) {
       Alert.alert(
         "Falta el nombre",
         "Introduce un nombre para el recordatorio."
@@ -91,7 +139,7 @@ export default function RecordatoriosScreen() {
       setGuardando(true);
 
       await crearRecordatorio(
-        nombre,
+        nombreSeguro,
         hora.getHours(),
         hora.getMinutes(),
         dias
@@ -101,11 +149,15 @@ export default function RecordatoriosScreen() {
 
       await cargarRecordatorios();
     } catch (error) {
-      console.error("Error creando recordatorio:", error);
+      console.error(
+        "Error creando recordatorio:",
+        error
+      );
 
       if (
         error instanceof Error &&
-        error.message === "NOTIFICATIONS_PERMISSION_DENIED"
+        error.message ===
+          "NOTIFICATIONS_PERMISSION_DENIED"
       ) {
         Alert.alert(
           "Notificaciones desactivadas",
@@ -146,7 +198,9 @@ export default function RecordatoriosScreen() {
     }
   }
 
-  function confirmarEliminacion(recordatorio: Recordatorio) {
+  function confirmarEliminacion(
+    recordatorio: Recordatorio
+  ) {
     Alert.alert(
       "Eliminar recordatorio",
       `¿Quieres eliminar "${recordatorio.nombre}"?`,
@@ -160,7 +214,10 @@ export default function RecordatoriosScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await eliminarRecordatorio(recordatorio.id);
+              await eliminarRecordatorio(
+                recordatorio.id
+              );
+
               await cargarRecordatorios();
             } catch (error) {
               console.error(
@@ -183,14 +240,20 @@ export default function RecordatoriosScreen() {
     hora: number,
     minuto: number
   ) {
-    return `${hora.toString().padStart(2, "0")}:${minuto
+    return `${hora
+      .toString()
+      .padStart(2, "0")}:${minuto
       .toString()
       .padStart(2, "0")}`;
   }
 
-  function mostrarDias(recordatorio: Recordatorio) {
+  function mostrarDias(
+    recordatorio: Recordatorio
+  ) {
     return DIAS.filter((dia) =>
-      recordatorio.dias.includes(dia.numero)
+      recordatorio.dias.includes(
+        dia.numero
+      )
     )
       .map((dia) => dia.nombre)
       .join(" ");
@@ -202,114 +265,209 @@ export default function RecordatoriosScreen() {
         <Pressable
           style={styles.backButton}
           onPress={() => router.back()}
+          hitSlop={8}
         >
-          <Text style={styles.backIcon}>‹</Text>
+          <Feather
+            name="chevron-left"
+            size={22}
+            color={colors.ink}
+          />
         </Pressable>
 
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.title}>Mis recordatorios</Text>
+        <View
+          style={styles.headerTitleContainer}
+        >
+          <Text style={styles.title}>
+            Mis recordatorios
+          </Text>
+
           <Text style={styles.subtitle}>
-            Recibe avisos para no olvidarte de fichar
+            Avisos para no olvidarte de fichar
           </Text>
         </View>
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={
+          styles.content
+        }
         showsVerticalScrollIndicator={false}
       >
         {recordatorios.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔔</Text>
+          <View
+            style={styles.emptyContainer}
+          >
+            <View style={styles.emptyIconRing}>
+              <Feather
+                name="bell-off"
+                size={22}
+                color={colors.inkFaint}
+              />
+            </View>
 
-            <Text style={styles.emptyTitle}>
+            <Text
+              style={styles.emptyTitle}
+            >
               No tienes recordatorios
             </Text>
 
-            <Text style={styles.emptyText}>
-              Crea uno para recibir un aviso antes de fichar.
+            <Text
+              style={styles.emptyText}
+            >
+              Crea uno para recibir un aviso antes
+              de fichar.
             </Text>
           </View>
         ) : (
-          recordatorios.map((recordatorio) => (
-            <View
-              key={recordatorio.id}
-              style={[
-                styles.card,
-                !recordatorio.activo &&
-                  styles.cardDisabled,
-              ]}
-            >
-              <View style={styles.cardMain}>
-                <View style={styles.timeContainer}>
-                  <Text style={styles.time}>
-                    {formatearHora(
-                      recordatorio.hora,
-                      recordatorio.minuto
-                    )}
-                  </Text>
-
-                  <Text style={styles.days}>
-                    {mostrarDias(recordatorio)}
-                  </Text>
-                </View>
-
-                <View style={styles.info}>
-                  <Text
-                    style={[
-                      styles.recordatorioNombre,
-                      !recordatorio.activo &&
-                        styles.textDisabled,
-                    ]}
-                  >
-                    {recordatorio.nombre}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.status,
-                      !recordatorio.activo &&
-                        styles.textDisabled,
-                    ]}
-                  >
-                    {recordatorio.activo
-                      ? "Activo"
-                      : "Desactivado"}
-                  </Text>
-                </View>
-
-                <Switch
-                  value={recordatorio.activo}
-                  onValueChange={(valor) =>
-                    cambiarEstado(recordatorio, valor)
-                  }
-                />
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Pressable
-                  onPress={() =>
-                    confirmarEliminacion(recordatorio)
-                  }
-                >
-                  <Text style={styles.deleteText}>
-                    Eliminar
-                  </Text>
-                </Pressable>
-              </View>
+          <View style={styles.listCard}>
+            <View style={styles.listHeaderRow}>
+              <Text
+                style={[
+                  styles.listHeaderText,
+                  { width: 64 },
+                ]}
+              >
+                Hora
+              </Text>
+              <Text
+                style={[
+                  styles.listHeaderText,
+                  { flex: 1, marginHorizontal: 14 },
+                ]}
+              >
+                Recordatorio
+              </Text>
             </View>
-          ))
+
+            {recordatorios.map(
+              (recordatorio, index) => (
+                <View
+                  key={recordatorio.id}
+                  style={[
+                    styles.row,
+                    index !==
+                      recordatorios.length - 1 &&
+                      styles.rowDivider,
+                    !recordatorio.activo &&
+                      styles.rowDisabled,
+                  ]}
+                >
+                  <View
+                    style={styles.timeContainer}
+                  >
+                    <Text
+                      style={[
+                        styles.time,
+                        !recordatorio.activo &&
+                          styles.textFaint,
+                      ]}
+                    >
+                      {formatearHora(
+                        recordatorio.hora,
+                        recordatorio.minuto
+                      )}
+                    </Text>
+
+                    <Text
+                      style={styles.days}
+                    >
+                      {mostrarDias(
+                        recordatorio
+                      )}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={styles.info}
+                  >
+                    <Text
+                      style={[
+                        styles.recordatorioNombre,
+                        !recordatorio.activo &&
+                          styles.textFaint,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {recordatorio.nombre}
+                    </Text>
+
+                    <View
+                      style={styles.statusRow}
+                    >
+                      <View
+                        style={[
+                          styles.statusDot,
+                          recordatorio.activo
+                            ? styles.statusDotActive
+                            : styles.statusDotInactive,
+                        ]}
+                      />
+                      <Text
+                        style={styles.statusText}
+                      >
+                        {recordatorio.activo
+                          ? "Activo"
+                          : "Desactivado"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Switch
+                    value={recordatorio.activo}
+                    onValueChange={(valor) =>
+                      cambiarEstado(
+                        recordatorio,
+                        valor
+                      )
+                    }
+                    trackColor={{
+                      false: colors.border,
+                      true: colors.accent,
+                    }}
+                    thumbColor={colors.surface}
+                    ios_backgroundColor={
+                      colors.border
+                    }
+                  />
+
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={() =>
+                      confirmarEliminacion(
+                        recordatorio
+                      )
+                    }
+                    hitSlop={8}
+                  >
+                    <Feather
+                      name="trash-2"
+                      size={16}
+                      color={colors.inkFaint}
+                    />
+                  </Pressable>
+                </View>
+              )
+            )}
+          </View>
         )}
 
         <Pressable
           style={({ pressed }) => [
             styles.addButton,
-            pressed && styles.addButtonPressed,
+            pressed &&
+              styles.addButtonPressed,
           ]}
-          onPress={abrirNuevoRecordatorio}
+          onPress={
+            abrirNuevoRecordatorio
+          }
         >
-          <Text style={styles.addIcon}>+</Text>
+          <Feather
+            name="plus"
+            size={18}
+            color={colors.surface}
+          />
+
           <Text style={styles.addText}>
             Nuevo recordatorio
           </Text>
@@ -320,57 +478,126 @@ export default function RecordatoriosScreen() {
         visible={modalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() =>
+          setModalVisible(false)
+        }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+        <View
+          style={styles.modalOverlay}
+        >
+          <View
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalHandle} />
+
+            <View
+              style={styles.modalHeader}
+            >
+              <Text
+                style={styles.modalTitle}
+              >
                 Nuevo recordatorio
               </Text>
 
               <Pressable
-                onPress={() => setModalVisible(false)}
+                onPress={() =>
+                  setModalVisible(false)
+                }
+                hitSlop={8}
               >
-                <Text style={styles.closeButton}>×</Text>
+                <Feather
+                  name="x"
+                  size={22}
+                  color={colors.inkMuted}
+                />
               </Pressable>
             </View>
 
-            <Text style={styles.label}>Nombre</Text>
+            <Text style={styles.label}>
+              Nombre
+            </Text>
 
             <TextInput
               style={styles.input}
               placeholder="Ej. Entrada"
+              placeholderTextColor={
+                colors.inkFaint
+              }
               value={nombre}
               onChangeText={setNombre}
               autoCapitalize="sentences"
               maxLength={50}
             />
 
-            <Text style={styles.label}>Hora</Text>
+            <Text style={styles.label}>
+              Hora
+            </Text>
 
-            <View style={styles.timePickerContainer}>
-              <DateTimePicker
-                value={hora}
-                mode="time"
-                display="spinner"
-                onChange={(_, selectedDate) => {
-                  if (selectedDate) {
-                    setHora(selectedDate);
+            {Platform.OS === "android" ? (
+              <Pressable
+                style={styles.timeButton}
+                onPress={() =>
+                  setMostrarPicker(true)
+                }
+              >
+                <Feather
+                  name="clock"
+                  size={16}
+                  color={colors.inkMuted}
+                />
+                <Text
+                  style={styles.timeButtonText}
+                >
+                  {formatearHora(
+                    hora.getHours(),
+                    hora.getMinutes()
+                  )}
+                </Text>
+              </Pressable>
+            ) : (
+              <View
+                style={
+                  styles.timePickerContainer
+                }
+              >
+                <DateTimePicker
+                  value={hora}
+                  mode="time"
+                  display="spinner"
+                  onValueChange={
+                    manejarSeleccionHora
                   }
-                }}
-              />
-            </View>
+                />
+              </View>
+            )}
+
+            {Platform.OS === "android" &&
+              mostrarPicker && (
+                <DateTimePicker
+                  value={hora}
+                  mode="time"
+                  display="default"
+                  onValueChange={
+                    manejarSeleccionHora
+                  }
+                  onDismiss={
+                    manejarCierrePicker
+                  }
+                />
+              )}
 
             <Text style={styles.label}>
               Días de la semana
             </Text>
 
-            <View style={styles.daysSelector}>
+            <View
+              style={styles.daysSelector}
+            >
               {DIAS.map((dia) => {
-                const seleccionado = dias.includes(
-                  dia.numero
-                );
+                const seleccionado =
+                  dias.includes(
+                    dia.numero
+                  );
 
                 return (
                   <Pressable
@@ -381,7 +608,9 @@ export default function RecordatoriosScreen() {
                         styles.dayButtonSelected,
                     ]}
                     onPress={() =>
-                      alternarDia(dia.numero)
+                      alternarDia(
+                        dia.numero
+                      )
                     }
                   >
                     <Text
@@ -401,12 +630,19 @@ export default function RecordatoriosScreen() {
             <Pressable
               style={[
                 styles.saveButton,
-                guardando && styles.saveButtonDisabled,
+                guardando &&
+                  styles.saveButtonDisabled,
               ]}
-              onPress={guardarNuevoRecordatorio}
+              onPress={
+                guardarNuevoRecordatorio
+              }
               disabled={guardando}
             >
-              <Text style={styles.saveButtonText}>
+              <Text
+                style={
+                  styles.saveButtonText
+                }
+              >
                 {guardando
                   ? "Guardando..."
                   : "Guardar recordatorio"}
@@ -414,11 +650,19 @@ export default function RecordatoriosScreen() {
             </Pressable>
 
             <Pressable
-              style={styles.cancelButton}
-              onPress={() => setModalVisible(false)}
+              style={
+                styles.cancelButton
+              }
+              onPress={() =>
+                setModalVisible(false)
+              }
               disabled={guardando}
             >
-              <Text style={styles.cancelButtonText}>
+              <Text
+                style={
+                  styles.cancelButtonText
+                }
+              >
                 Cancelar
               </Text>
             </Pressable>
@@ -432,30 +676,27 @@ export default function RecordatoriosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f7fa",
+    backgroundColor: colors.canvas,
   },
 
   header: {
     paddingTop: 60,
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: "#ffffff",
+    paddingBottom: 18,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
   },
 
   backButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
-  },
-
-  backIcon: {
-    fontSize: 36,
-    lineHeight: 38,
-    color: "#1f2937",
+    marginRight: 8,
+    marginLeft: -6,
   },
 
   headerTitleContainer: {
@@ -463,15 +704,16 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
+    letterSpacing: -0.2,
   },
 
   subtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: "#6b7280",
+    marginTop: 3,
+    fontSize: 13.5,
+    color: colors.inkMuted,
   },
 
   scroll: {
@@ -486,247 +728,299 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 70,
+    paddingVertical: 64,
     paddingHorizontal: 30,
   },
 
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
 
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
     textAlign: "center",
   },
 
   emptyText: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#6b7280",
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.inkMuted,
     textAlign: "center",
   },
 
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    elevation: 2,
+  listCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    overflow: "hidden",
   },
 
-  cardDisabled: {
-    opacity: 0.65,
+  listHeaderRow: {
+    flexDirection: "row",
+    paddingTop: 14,
+    paddingBottom: 10,
   },
 
-  cardMain: {
+  listHeaderText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: colors.inkFaint,
+  },
+
+  row: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 14,
+  },
+
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  rowDisabled: {
+    opacity: 0.55,
   },
 
   timeContainer: {
-    width: 80,
+    width: 64,
   },
 
   time: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.accent,
+    letterSpacing: -0.2,
   },
 
   days: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#6b7280",
-    letterSpacing: 1,
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.inkFaint,
+    letterSpacing: 0.4,
   },
 
   info: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: 14,
   },
 
   recordatorioNombre: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.ink,
   },
 
-  status: {
-    marginTop: 3,
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+
+  statusDotActive: {
+    backgroundColor: colors.accent,
+  },
+
+  statusDotInactive: {
+    backgroundColor: colors.borderStrong,
+  },
+
+  statusText: {
     fontSize: 12,
-    color: "#16a34a",
+    color: colors.inkMuted,
   },
 
-  textDisabled: {
-    color: "#9ca3af",
+  textFaint: {
+    color: colors.inkFaint,
   },
 
-  cardFooter: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    alignItems: "flex-end",
-  },
-
-  deleteText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#dc2626",
+  deleteButton: {
+    marginLeft: 12,
+    padding: 4,
   },
 
   addButton: {
-    marginTop: 8,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: "#111827",
+    marginTop: 20,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
   },
 
   addButtonPressed: {
-    opacity: 0.8,
-  },
-
-  addIcon: {
-    fontSize: 26,
-    color: "#ffffff",
-    marginRight: 8,
-    marginTop: -2,
+    opacity: 0.85,
   },
 
   addText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.surface,
+    letterSpacing: 0.1,
   },
 
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: colors.overlay,
   },
 
   modalContainer: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 34,
+  },
+
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: "center",
+    marginBottom: 18,
   },
 
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
+    marginBottom: 20,
   },
 
   modalTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
-  },
-
-  closeButton: {
-    fontSize: 32,
-    lineHeight: 32,
-    color: "#6b7280",
+    color: colors.ink,
   },
 
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#374151",
+    color: colors.inkMuted,
     marginBottom: 8,
+    marginTop: 12,
   },
 
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 8,
     paddingHorizontal: 14,
+    fontSize: 15.5,
+    color: colors.ink,
+    backgroundColor: colors.surfaceAlt,
+  },
+
+  timeButton: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceAlt,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  timeButtonText: {
     fontSize: 16,
-    color: "#111827",
-    marginBottom: 18,
+    fontWeight: "600",
+    color: colors.ink,
   },
 
   timePickerContainer: {
     alignItems: "center",
-    marginBottom: 18,
+    justifyContent: "center",
+    minHeight: 100,
   },
 
   daysSelector: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 24,
+    marginTop: 2,
+    marginBottom: 22,
   },
 
   dayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    justifyContent: "center",
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
+    justifyContent: "center",
   },
 
   dayButtonSelected: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
 
   dayButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#4b5563",
+    color: colors.inkMuted,
   },
 
   dayButtonTextSelected: {
-    color: "#ffffff",
+    color: colors.surface,
   },
 
   saveButton: {
     height: 52,
-    borderRadius: 12,
-    backgroundColor: "#111827",
-    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: colors.accent,
     alignItems: "center",
+    justifyContent: "center",
   },
 
   saveButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
 
   saveButtonText: {
-    fontSize: 16,
+    color: colors.surface,
+    fontSize: 15.5,
     fontWeight: "700",
-    color: "#ffffff",
   },
 
   cancelButton: {
-    height: 48,
-    justifyContent: "center",
+    height: 46,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: 6,
   },
 
   cancelButtonText: {
-    fontSize: 15,
+    color: colors.inkMuted,
+    fontSize: 14.5,
     fontWeight: "600",
-    color: "#6b7280",
   },
 });

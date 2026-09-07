@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 
 import { login } from "../src/api/auth";
@@ -25,8 +25,9 @@ import {
   saveToken,
   saveUser,
   setBiometricEnabled,
-  setSession
+  setSession,
 } from "../src/storage/auth";
+import { colors } from "../src/theme";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -82,32 +83,30 @@ export default function LoginScreen() {
         return;
       }
 
-const token = await getBiometricToken();
-const user = await getBiometricUser();
+      const token = await getBiometricToken();
+      const user = await getBiometricUser();
 
+      if (!token || !user) {
+        setError(
+          "No hay una sesión guardada. Inicia sesión con tu contraseña."
+        );
+        return;
+      }
 
+      const result =
+        await LocalAuthentication.authenticateAsync({
+          promptMessage: "Acceder a Siscentro",
+          cancelLabel: "Cancelar",
+          fallbackLabel: "Usar contraseña",
+        });
 
-if (!token || !user) {
-  setError(
-    "No hay una sesión guardada. Inicia sesión con tu contraseña."
-  );
-  return;
-}
+      if (!result.success) {
+        return;
+      }
 
-const result =
-  await LocalAuthentication.authenticateAsync({
-    promptMessage: "Acceder a Siscentro",
-    cancelLabel: "Cancelar",
-    fallbackLabel: "Usar contraseña",
-  });
+      setSession(token, user);
 
-if (!result.success) {
-  return;
-}
-
-setSession(token, user);
-
-router.replace("/home");
+      router.replace("/home");
     } catch (err) {
       console.error("Error en autenticación biométrica:", err);
 
@@ -199,14 +198,14 @@ router.replace("/home");
                     );
 
                   if (biometricResult.success) {
-  await saveBiometricSession(
-    result.access_token,
-    result.user
-  );
+                    await saveBiometricSession(
+                      result.access_token,
+                      result.user
+                    );
 
-  await setBiometricEnabled(true);
-  setBiometricEnabledState(true);
-}
+                    await setBiometricEnabled(true);
+                    setBiometricEnabledState(true);
+                  }
                 } catch (err) {
                   console.error(
                     "Error activando biometría:",
@@ -274,13 +273,13 @@ router.replace("/home");
 
           <View style={styles.field}>
             <Text style={styles.label}>
-              EMAIL
+              Email
             </Text>
 
             <TextInput
               style={styles.input}
               placeholder="tu@email.com"
-              placeholderTextColor="#A0A5AD"
+              placeholderTextColor={colors.inkFaint}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -291,14 +290,14 @@ router.replace("/home");
 
           <View style={styles.field}>
             <Text style={styles.label}>
-              CONTRASEÑA
+              Contraseña
             </Text>
 
             <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Tu contraseña"
-                placeholderTextColor="#A0A5AD"
+                placeholderTextColor={colors.inkFaint}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -313,15 +312,16 @@ router.replace("/home");
                     (value) => !value
                   )
                 }
+                hitSlop={8}
               >
-                <Ionicons
+                <Feather
                   name={
                     showPassword
-                      ? "eye-off-outline"
-                      : "eye-outline"
+                      ? "eye-off"
+                      : "eye"
                   }
-                  size={22}
-                  color="#6B7280"
+                  size={19}
+                  color={colors.inkMuted}
                 />
               </Pressable>
             </View>
@@ -343,9 +343,11 @@ router.replace("/home");
               ]}
             >
               {rememberSession ? (
-                <Text style={styles.checkmark}>
-                  ✓
-                </Text>
+                <Feather
+                  name="check"
+                  size={14}
+                  color={colors.surface}
+                />
               ) : null}
             </View>
 
@@ -356,6 +358,12 @@ router.replace("/home");
 
           {error ? (
             <View style={styles.errorBox}>
+              <Feather
+                name="alert-circle"
+                size={16}
+                color={colors.danger}
+              />
+
               <Text style={styles.error}>
                 {error}
               </Text>
@@ -375,17 +383,20 @@ router.replace("/home");
           >
             {loading ? (
               <ActivityIndicator
-                color="#FFFFFF"
+                color={colors.surface}
               />
             ) : (
               <>
                 <Text style={styles.buttonText}>
-                  ENTRAR
+                  Entrar
                 </Text>
 
-                <Text style={styles.arrow}>
-                  →
-                </Text>
+                <Feather
+                  name="arrow-right"
+                  size={18}
+                  color={colors.surface}
+                  style={styles.arrowIcon}
+                />
               </>
             )}
           </Pressable>
@@ -399,8 +410,8 @@ router.replace("/home");
             >
               <Ionicons
                 name="finger-print-outline"
-                size={23}
-                color="#111827"
+                size={20}
+                color={colors.ink}
               />
 
               <Text
@@ -425,7 +436,7 @@ router.replace("/home");
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F6F7F9",
+    backgroundColor: colors.canvas,
   },
 
   backgroundCircle: {
@@ -433,7 +444,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: "#E8ECF3",
+    backgroundColor: colors.accentSoft,
     top: -130,
     right: -100,
   },
@@ -450,101 +461,98 @@ const styles = StyleSheet.create({
   },
 
   logoIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: "#111827",
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
   },
 
   logoIconText: {
-    color: "#FFFFFF",
-    fontSize: 32,
+    color: colors.surface,
+    fontSize: 30,
     fontWeight: "800",
   },
 
   logo: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "800",
-    color: "#111827",
-    letterSpacing: -1,
+    color: colors.ink,
+    letterSpacing: -0.6,
   },
 
   subtitle: {
-    color: "#737983",
+    color: colors.inkMuted,
     fontSize: 14,
     marginTop: 5,
   },
 
   form: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
     padding: 24,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 5,
   },
 
   welcome: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
-    color: "#111827",
+    color: colors.ink,
   },
 
   description: {
     fontSize: 14,
-    color: "#737983",
+    color: colors.inkMuted,
     marginTop: 6,
     marginBottom: 26,
   },
 
   field: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
 
   label: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#737983",
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.inkMuted,
     marginBottom: 8,
-    letterSpacing: 0.8,
   },
 
   input: {
-    height: 54,
-    backgroundColor: "#F5F6F8",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: "#111827",
+    height: 50,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontSize: 15.5,
+    color: colors.ink,
   },
 
   passwordContainer: {
-    height: 54,
-    backgroundColor: "#F5F6F8",
-    borderRadius: 12,
+    height: 50,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
   },
 
   passwordInput: {
     flex: 1,
-    height: 54,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: "#111827",
+    height: 50,
+    paddingHorizontal: 14,
+    fontSize: 15.5,
+    color: colors.ink,
   },
 
   eyeButton: {
-    height: 54,
-    paddingHorizontal: 14,
+    height: 50,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -552,62 +560,60 @@ const styles = StyleSheet.create({
   rememberRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: -2,
+    marginTop: 2,
     marginBottom: 18,
   },
 
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: "#C7CBD2",
+    borderColor: colors.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
 
   checkboxChecked: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-
-  checkmark: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
 
   rememberText: {
-    color: "#4B5563",
+    color: colors.inkMuted,
     fontSize: 14,
   },
 
   errorBox: {
-    backgroundColor: "#FEF2F2",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 10,
-    padding: 10,
+    padding: 11,
     marginBottom: 14,
   },
 
   error: {
-    color: "#DC2626",
-    textAlign: "center",
+    flex: 1,
+    color: colors.danger,
     fontSize: 13,
   },
 
   button: {
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: "#111827",
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
 
   buttonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.88,
   },
 
   buttonDisabled: {
@@ -615,39 +621,36 @@ const styles = StyleSheet.create({
   },
 
   buttonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-    letterSpacing: 1,
+    color: colors.surface,
+    fontSize: 15.5,
+    fontWeight: "700",
   },
 
-  arrow: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    marginLeft: 12,
+  arrowIcon: {
+    marginLeft: 8,
   },
 
   biometricButton: {
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
+    gap: 9,
   },
 
   biometricButtonText: {
-    color: "#111827",
+    color: colors.ink,
     fontSize: 14,
-    fontWeight: "700",
-    marginLeft: 9,
+    fontWeight: "600",
   },
 
   footer: {
     textAlign: "center",
-    color: "#A0A5AD",
+    color: colors.inkFaint,
     fontSize: 12,
     marginTop: 28,
   },

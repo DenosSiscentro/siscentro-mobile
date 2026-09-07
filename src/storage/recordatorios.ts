@@ -16,12 +16,8 @@ export interface Recordatorio {
 
 const CHANNEL_ID = "siscentro-recordatorios";
 
-/*
- * Cada trabajador tendrá sus propios recordatorios.
- *
- * Ejemplo:
- * siscentro_recordatorios_6
- * siscentro_recordatorios_7
+/**
+ * Cada trabajador tiene sus propios recordatorios.
  */
 function obtenerStorageKey(usuarioId: number) {
   return `siscentro_recordatorios_${usuarioId}`;
@@ -38,7 +34,11 @@ export async function configurarNotificaciones() {
         name: "Recordatorios de fichaje",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        sound: "default",
+        // No fijamos "sound" aquí. Omitir la propiedad (en vez de pasar
+        // el string "default") es la forma correcta de pedir el sonido
+        // de notificación por defecto del sistema: así lo documentan los
+        // propios ejemplos de Expo. Pasar "default" explícitamente
+        // dispara el mismo bug que en content.sound (ver más abajo).
       }
     );
   }
@@ -85,14 +85,21 @@ async function cargar(): Promise<Recordatorio[]> {
 
   const key = obtenerStorageKey(usuarioId);
 
-  const data = await SecureStore.getItemAsync(key);
+  const data =
+    await SecureStore.getItemAsync(key);
 
   if (!data) {
     return [];
   }
 
   try {
-    return JSON.parse(data) as Recordatorio[];
+    const datos = JSON.parse(data);
+
+    if (!Array.isArray(datos)) {
+      return [];
+    }
+
+    return datos as Recordatorio[];
   } catch {
     return [];
   }
@@ -115,7 +122,7 @@ async function guardar(
 }
 
 /**
- * Genera un ID único para cada recordatorio.
+ * Genera un ID único.
  */
 function crearId() {
   return `${Date.now()}-${Math.random()
@@ -124,7 +131,7 @@ function crearId() {
 }
 
 /**
- * Programa las notificaciones semanales de un recordatorio.
+ * Programa las notificaciones semanales.
  */
 async function programar(
   recordatorio: Omit<
@@ -135,59 +142,50 @@ async function programar(
   const notificationIds: string[] = [];
 
   for (const dia of recordatorio.dias) {
-    let notificationId: string;
-
-    if (Platform.OS === "android") {
-      notificationId =
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Recordatorio Siscentro",
-            body: recordatorio.nombre,
-            sound: "default",
-            data: {
-              tipo: "recordatorio_fichaje",
-              recordatorioId: recordatorio.id,
-            },
+    const notificationId =
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Recordatorio Siscentro",
+          body: recordatorio.nombre,
+          // No fijamos "sound" aquí: en Android lo aporta el canal
+          // (CHANNEL_ID, configurado en configurarNotificaciones), y en
+          // iOS el sonido por defecto ya lo decide setNotificationHandler
+          // (shouldPlaySound). Pasar sound:"default" en el contenido de
+          // cada notificación individual dispara un bug conocido de
+          // expo-notifications (github.com/expo/expo/issues/40954) que
+          // registra el aviso "Custom sound 'default' not found..."
+          // aunque el sonido por defecto sí llega a sonar igualmente.
+          data: {
+            tipo: "recordatorio_fichaje",
+            recordatorioId: recordatorio.id,
           },
+        },
 
-          trigger: {
-            type:
-              Notifications
-                .SchedulableTriggerInputTypes
-                .WEEKLY,
+        trigger:
+          Platform.OS === "android"
+            ? {
+                type:
+                  Notifications
+                    .SchedulableTriggerInputTypes
+                    .WEEKLY,
 
-            weekday: dia,
-            hour: recordatorio.hora,
-            minute: recordatorio.minuto,
+                weekday: dia,
+                hour: recordatorio.hora,
+                minute: recordatorio.minuto,
 
-            channelId: CHANNEL_ID,
-          },
-        });
-    } else {
-      notificationId =
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Recordatorio Siscentro",
-            body: recordatorio.nombre,
-            sound: "default",
-            data: {
-              tipo: "recordatorio_fichaje",
-              recordatorioId: recordatorio.id,
-            },
-          },
+                channelId: CHANNEL_ID,
+              }
+            : {
+                type:
+                  Notifications
+                    .SchedulableTriggerInputTypes
+                    .CALENDAR,
 
-          trigger: {
-            type:
-              Notifications
-                .SchedulableTriggerInputTypes
-                .CALENDAR,
-
-            weekday: dia,
-            hour: recordatorio.hora,
-            minute: recordatorio.minuto,
-          },
-        });
-    }
+                weekday: dia,
+                hour: recordatorio.hora,
+                minute: recordatorio.minuto,
+              },
+      });
 
     notificationIds.push(notificationId);
   }
@@ -196,8 +194,20 @@ async function programar(
 }
 
 /**
- * Devuelve todos los recordatorios
- * pertenecientes al trabajador actual.
+ * Devuelve todos los recordatorios.
+ *
+ * Se mantiene este nombre porque es el que utiliza
+ * la pantalla recordatorios.tsx.
+ */
+export async function obtenerRecordatorios(): Promise<
+  Recordatorio[]
+> {
+  return cargar();
+}
+
+/**
+ * Alias para mantener compatibilidad con código
+ * que utilice el nombre getRecordatorios().
  */
 export async function getRecordatorios(): Promise<
   Recordatorio[]
@@ -209,19 +219,34 @@ export async function getRecordatorios(): Promise<
  * Crea un nuevo recordatorio.
  */
 export async function crearRecordatorio(
-  nombre: string,
+  nombre: string | null | undefined,
   hora: number,
   minuto: number,
   dias: number[]
 ) {
   await configurarNotificaciones();
 
+  /*
+   * Protegemos el nombre.
+   *
+   * Así nunca hacemos:
+   *
+   * undefined.trim()
+   *
+   * ni:
+   *
+   * null.trim()
+   */
+  const nombreSeguro =
+    typeof nombre === "string" &&
+    nombre.trim().length > 0
+      ? nombre.trim()
+      : "Recordatorio de fichaje";
+
   const recordatorioBase = {
     id: crearId(),
 
-    nombre:
-      nombre.trim() ||
-      "Recordatorio de fichaje",
+    nombre: nombreSeguro,
 
     hora,
     minuto,
@@ -249,21 +274,21 @@ export async function crearRecordatorio(
 }
 
 /**
- * Elimina un recordatorio y todas sus
- * notificaciones programadas.
+ * Elimina un recordatorio y sus notificaciones.
  */
 export async function eliminarRecordatorio(
   id: string
 ) {
   const recordatorios = await cargar();
 
-  const recordatorio = recordatorios.find(
-    (item) => item.id === id
-  );
+  const recordatorio =
+    recordatorios.find(
+      (item) => item.id === id
+    );
 
   if (recordatorio) {
     for (const notificationId of
-      recordatorio.notificationIds) {
+      recordatorio.notificationIds ?? []) {
       await Notifications.cancelScheduledNotificationAsync(
         notificationId
       );
@@ -280,12 +305,6 @@ export async function eliminarRecordatorio(
 
 /**
  * Activa o desactiva un recordatorio.
- *
- * Al desactivarlo:
- * - cancela las notificaciones existentes.
- *
- * Al activarlo:
- * - vuelve a programarlas.
  */
 export async function cambiarEstadoRecordatorio(
   id: string,
@@ -293,28 +312,27 @@ export async function cambiarEstadoRecordatorio(
 ) {
   const recordatorios = await cargar();
 
-  const recordatorio = recordatorios.find(
-    (item) => item.id === id
-  );
+  const recordatorio =
+    recordatorios.find(
+      (item) => item.id === id
+    );
 
   if (!recordatorio) {
     return;
   }
 
   /*
-   * Primero cancelamos las notificaciones
-   * actualmente programadas.
+   * Cancelamos las notificaciones anteriores.
    */
   for (const notificationId of
-    recordatorio.notificationIds) {
+    recordatorio.notificationIds ?? []) {
     await Notifications.cancelScheduledNotificationAsync(
       notificationId
     );
   }
 
   /*
-   * Si se vuelve a activar, programamos
-   * nuevamente todas sus notificaciones.
+   * Si se activa, las volvemos a programar.
    */
   if (activo) {
     recordatorio.notificationIds =
@@ -329,17 +347,16 @@ export async function cambiarEstadoRecordatorio(
 }
 
 /**
- * Cancela todas las notificaciones de los
- * recordatorios del trabajador actual.
+ * Cancela todas las notificaciones existentes.
  *
- * No elimina los recordatorios almacenados.
+ * No elimina los recordatorios.
  */
 export async function cancelarTodosLosRecordatorios() {
   const recordatorios = await cargar();
 
   for (const recordatorio of recordatorios) {
     for (const notificationId of
-      recordatorio.notificationIds) {
+      recordatorio.notificationIds ?? []) {
       await Notifications.cancelScheduledNotificationAsync(
         notificationId
       );

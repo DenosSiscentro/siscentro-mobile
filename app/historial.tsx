@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getToken } from "../src/storage/auth";
+import { colors } from "../src/theme";
 
 const API_URL = "https://ncontrol.siscentro.com/api/v1";
 
@@ -99,23 +100,33 @@ export default function HistorialScreen() {
   function cambiarMes(cantidad: number) {
     setMesActual(
       (actual) =>
-        new Date(actual.getFullYear(), actual.getMonth() + cantidad, 1)
+        new Date(
+          actual.getFullYear(),
+          actual.getMonth() + cantidad,
+          1
+        )
     );
   }
 
   function formatearHora(fecha: string) {
-    return new Date(fecha).toLocaleTimeString("es-ES", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return new Date(fecha).toLocaleTimeString(
+      "es-ES",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
   }
 
   function formatearDia(fecha: string) {
-    return new Date(fecha).toLocaleDateString("es-ES", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    return new Date(fecha).toLocaleDateString(
+      "es-ES",
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }
+    );
   }
 
   const fichajesMes = useMemo(() => {
@@ -136,7 +147,9 @@ export default function HistorialScreen() {
       const fecha = new Date(fichaje.fecha_hora);
       const clave = `${fecha.getFullYear()}-${String(
         fecha.getMonth() + 1
-      ).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+      ).padStart(2, "0")}-${String(
+        fecha.getDate()
+      ).padStart(2, "0")}`;
 
       if (!agrupados[clave]) {
         agrupados[clave] = [];
@@ -156,7 +169,11 @@ export default function HistorialScreen() {
 
         let horas = 0;
 
-        for (let i = 0; i < ordenados.length - 1; i += 2) {
+        for (
+          let i = 0;
+          i < ordenados.length - 1;
+          i += 2
+        ) {
           const entrada = ordenados[i];
           const salida = ordenados[i + 1];
 
@@ -165,8 +182,12 @@ export default function HistorialScreen() {
             salida?.tipo === "SALIDA"
           ) {
             horas +=
-              (new Date(salida.fecha_hora).getTime() -
-                new Date(entrada.fecha_hora).getTime()) /
+              (new Date(
+                salida.fecha_hora
+              ).getTime() -
+                new Date(
+                  entrada.fecha_hora
+                ).getTime()) /
               3600000;
           }
         }
@@ -177,252 +198,311 @@ export default function HistorialScreen() {
           horas,
           incompleto:
             ordenados.length > 0 &&
-            ordenados[ordenados.length - 1].tipo === "ENTRADA",
+            ordenados[ordenados.length - 1]
+              .tipo === "ENTRADA",
         };
       });
   }, [fichajesMes]);
 
-  const totalHoras = dias.reduce((total, dia) => total + dia.horas, 0);
+  const totalHoras = dias.reduce(
+    (total, dia) => total + dia.horas,
+    0
+  );
 
   const totalFichajes = fichajesMes.length;
 
   const formatearHoras = (horas: number) => {
     const horasEnteras = Math.floor(horas);
-    const minutos = Math.round((horas - horasEnteras) * 60);
+    const minutos = Math.round(
+      (horas - horasEnteras) * 60
+    );
 
-    return `${horasEnteras} h ${minutos.toString().padStart(2, "0")} min`;
+    return `${horasEnteras} h ${minutos
+      .toString()
+      .padStart(2, "0")} min`;
   };
 
-  const nombreMes = mesActual.toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
-  });
+  const nombreMes = mesActual.toLocaleDateString(
+    "es-ES",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  );
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator
+          size="large"
+          color={colors.accent}
+        />
       </View>
     );
   }
 
-return (
-  <View style={styles.container}>
-
-<View style={{ paddingTop: insets.top + 12 }}>
+  return (
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 12 },
+      ]}
+    >
       <View style={styles.monthSelector}>
         <Pressable
           style={styles.monthButton}
           onPress={() => cambiarMes(-1)}
+          hitSlop={8}
         >
-          <Ionicons
-            name="chevron-back"
+          <Feather
+            name="chevron-left"
             size={20}
-            color="#111827"
+            color={colors.ink}
           />
         </Pressable>
 
-        <View style={styles.monthCenter}>
-          <Text style={styles.monthLabel}>MES</Text>
-          <Text style={styles.monthTitle}>
-            {nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)}
-          </Text>
-        </View>
+        <Text style={styles.monthTitle}>
+          {nombreMes.charAt(0).toUpperCase() +
+            nombreMes.slice(1)}
+        </Text>
 
         <Pressable
           style={styles.monthButton}
           onPress={() => cambiarMes(1)}
+          hitSlop={8}
         >
-          <Ionicons
-            name="chevron-forward"
+          <Feather
+            name="chevron-right"
             size={20}
-            color="#111827"
+            color={colors.ink}
           />
         </Pressable>
       </View>
-    </View>
 
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={refrescar}
-        />
-      }
-    >
-      {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={20}
-            color="#B91C1C"
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refrescar}
+            tintColor={colors.accent}
           />
-          <Text style={styles.error}>{error}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.summary}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            {formatearHoras(totalHoras)}
-          </Text>
-          <Text style={styles.summaryLabel}>
-            Horas trabajadas
-          </Text>
-        </View>
-
-        <View style={styles.summaryDivider} />
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            {dias.length}
-          </Text>
-          <Text style={styles.summaryLabel}>
-            Días trabajados
-          </Text>
-        </View>
-
-        <View style={styles.summaryDivider} />
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            {totalFichajes}
-          </Text>
-          <Text style={styles.summaryLabel}>
-            Fichajes
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
-          Actividad
-        </Text>
-
-        <Text style={styles.sectionSubtitle}>
-          {dias.length === 1
-            ? "1 jornada"
-            : `${dias.length} jornadas`}
-        </Text>
-      </View>
-
-      {dias.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <View style={styles.emptyIcon}>
-            <Ionicons
-              name="calendar-outline"
-              size={30}
-              color="#6B7280"
+        }
+      >
+        {error ? (
+          <View style={styles.errorBox}>
+            <Feather
+              name="alert-circle"
+              size={18}
+              color={colors.danger}
             />
+            <Text style={styles.error}>
+              {error}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.summary}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>
+              {formatearHoras(totalHoras)}
+            </Text>
+            <Text style={styles.summaryLabel}>
+              Horas trabajadas
+            </Text>
           </View>
 
-          <Text style={styles.emptyTitle}>
-            No hay fichajes este mes
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>
+              {dias.length}
+            </Text>
+            <Text style={styles.summaryLabel}>
+              Días trabajados
+            </Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>
+              {totalFichajes}
+            </Text>
+            <Text style={styles.summaryLabel}>
+              Fichajes
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Actividad
           </Text>
 
-          <Text style={styles.emptyText}>
-            Cuando realices fichajes aparecerán aquí.
+          <Text style={styles.sectionSubtitle}>
+            {dias.length === 1
+              ? "1 jornada"
+              : `${dias.length} jornadas`}
           </Text>
         </View>
-      ) : (
-        dias.map((dia) => (
-          <View
-            key={dia.fecha}
-            style={styles.dayCard}
-          >
-            <View style={styles.dayHeader}>
-              <View>
-                <Text style={styles.dayName}>
-                  {formatearDia(`${dia.fecha}T12:00:00`)}
-                </Text>
 
-                <Text style={styles.dayHours}>
-                  {dia.horas > 0
-                    ? formatearHoras(dia.horas)
-                    : "Jornada incompleta"}
-                </Text>
-              </View>
+        {dias.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Feather
+                name="calendar"
+                size={26}
+                color={colors.inkFaint}
+              />
+            </View>
 
-              {dia.incompleto ? (
-                <View style={styles.warningBadge}>
-                  <Ionicons
-                    name="warning-outline"
-                    size={15}
-                    color="#92400E"
-                  />
+            <Text style={styles.emptyTitle}>
+              No hay fichajes este mes
+            </Text>
 
-                  <Text style={styles.warningText}>
-                    Incompleto
+            <Text style={styles.emptyText}>
+              Cuando realices fichajes aparecerán
+              aquí.
+            </Text>
+          </View>
+        ) : (
+          dias.map((dia) => (
+            <View
+              key={dia.fecha}
+              style={styles.dayCard}
+            >
+              <View style={styles.dayHeader}>
+                <View>
+                  <Text style={styles.dayName}>
+                    {formatearDia(
+                      `${dia.fecha}T12:00:00`
+                    )}
+                  </Text>
+
+                  <Text style={styles.dayHours}>
+                    {dia.horas > 0
+                      ? formatearHoras(
+                          dia.horas
+                        )
+                      : "Jornada incompleta"}
                   </Text>
                 </View>
-              ) : (
-                <View style={styles.completeBadge}>
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={17}
-                    color="#166534"
-                  />
-                </View>
-              )}
-            </View>
 
-            <View style={styles.timeline}>
-              {dia.fichajes.map((fichaje, index) => (
-                <View
-                  key={fichaje.id}
-                  style={styles.timelineItem}
-                >
-                  <View style={styles.timelineLeft}>
-                    <View
-                      style={[
-                        styles.timelineDot,
-                        fichaje.tipo === "ENTRADA"
-                          ? styles.entryDot
-                          : styles.exitDot,
-                      ]}
+                {dia.incompleto ? (
+                  <View style={styles.warningBadge}>
+                    <Feather
+                      name="alert-triangle"
+                      size={13}
+                      color={colors.danger}
                     />
 
-                    {index < dia.fichajes.length - 1 ? (
-                      <View style={styles.timelineLine} />
-                    ) : null}
-                  </View>
-
-                  <View style={styles.timelineContent}>
-                    <View>
-                      <Text style={styles.fichajeType}>
-                        {fichaje.tipo === "ENTRADA"
-                          ? "Entrada"
-                          : "Salida"}
-                      </Text>
-
-                      <Text style={styles.fichajeOrigin}>
-                        {fichaje.origen}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.fichajeTime}>
-                      {formatearHora(fichaje.fecha_hora)}
+                    <Text
+                      style={
+                        styles.warningText
+                      }
+                    >
+                      Incompleto
                     </Text>
                   </View>
-                </View>
-              ))}
+                ) : (
+                  <Feather
+                    name="check"
+                    size={17}
+                    color={colors.inkFaint}
+                  />
+                )}
+              </View>
+
+              <View style={styles.timeline}>
+                {dia.fichajes.map(
+                  (fichaje, index) => (
+                    <View
+                      key={fichaje.id}
+                      style={
+                        styles.timelineItem
+                      }
+                    >
+                      <View
+                        style={
+                          styles.timelineLeft
+                        }
+                      >
+                        <View
+                          style={[
+                            styles.timelineDot,
+                            fichaje.tipo ===
+                            "ENTRADA"
+                              ? styles.entryDot
+                              : styles.exitDot,
+                          ]}
+                        />
+
+                        {index <
+                        dia.fichajes.length -
+                          1 ? (
+                          <View
+                            style={
+                              styles.timelineLine
+                            }
+                          />
+                        ) : null}
+                      </View>
+
+                      <View
+                        style={
+                          styles.timelineContent
+                        }
+                      >
+                        <View>
+                          <Text
+                            style={
+                              styles.fichajeType
+                            }
+                          >
+                            {fichaje.tipo ===
+                            "ENTRADA"
+                              ? "Entrada"
+                              : "Salida"}
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.fichajeOrigin
+                            }
+                          >
+                            {fichaje.origen}
+                          </Text>
+                        </View>
+
+                        <Text
+                          style={
+                            styles.fichajeTime
+                          }
+                        >
+                          {formatearHora(
+                            fichaje.fecha_hora
+                          )}
+                        </Text>
+                      </View>
+                    </View>
+                  )
+                )}
+              </View>
             </View>
-          </View>
-        ))
-      )}
+          ))
+        )}
 
-      <View style={styles.bottomSpace} />
-    </ScrollView>
-
-  </View>
-);
+        <View style={styles.bottomSpace} />
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FB",
+    backgroundColor: colors.canvas,
     paddingHorizontal: 18,
   },
 
@@ -430,85 +510,62 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F8F9FB",
-  },
-
-  header: {
-    height: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-
-  title: {
-    fontSize: 21,
-    fontWeight: "700",
-    color: "#111827",
+    backgroundColor: colors.canvas,
   },
 
   monthSelector: {
-    height: 76,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
+    height: 60,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    marginBottom: 14,
+    paddingHorizontal: 8,
+    marginBottom: 16,
   },
 
   monthButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "#F3F4F6",
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  monthCenter: {
-    alignItems: "center",
-  },
-
-  monthLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    color: "#9CA3AF",
-    marginBottom: 2,
-  },
-
   monthTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
   },
 
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#FEF2F2",
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     padding: 12,
     marginBottom: 14,
   },
 
   error: {
     flex: 1,
-    color: "#B91C1C",
+    color: colors.danger,
     fontSize: 13,
   },
 
   summary: {
-    backgroundColor: "#111827",
-    borderRadius: 18,
-    minHeight: 100,
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    minHeight: 92,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
-    marginBottom: 24,
+    marginBottom: 26,
   },
 
   summaryItem: {
@@ -517,22 +574,22 @@ const styles = StyleSheet.create({
   },
 
   summaryValue: {
-    color: "#FFFFFF",
+    color: colors.surface,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 5,
   },
 
   summaryLabel: {
-    color: "#D1D5DB",
-    fontSize: 10,
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 10.5,
     textAlign: "center",
   },
 
   summaryDivider: {
     width: 1,
-    height: 42,
-    backgroundColor: "#374151",
+    height: 38,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
 
   sectionHeader: {
@@ -543,20 +600,22 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
   },
 
   sectionSubtitle: {
     fontSize: 12,
-    color: "#9CA3AF",
+    color: colors.inkFaint,
   },
 
   dayCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
   },
 
@@ -566,44 +625,37 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.border,
   },
 
   dayName: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
     textTransform: "capitalize",
   },
 
   dayHours: {
     fontSize: 12,
-    color: "#6B7280",
+    color: colors.inkMuted,
     marginTop: 4,
-  },
-
-  completeBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#F0FDF4",
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   warningBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#FFFBEB",
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
 
   warningText: {
-    color: "#92400E",
-    fontSize: 10,
+    color: colors.danger,
+    fontSize: 10.5,
     fontWeight: "600",
   },
 
@@ -617,31 +669,29 @@ const styles = StyleSheet.create({
   },
 
   timelineLeft: {
-    width: 28,
+    width: 26,
     alignItems: "center",
   },
 
   timelineDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
     marginTop: 5,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
   },
 
   entryDot: {
-    backgroundColor: "#16A34A",
+    backgroundColor: colors.accent,
   },
 
   exitDot: {
-    backgroundColor: "#DC2626",
+    backgroundColor: colors.borderStrong,
   },
 
   timelineLine: {
     width: 1,
     flex: 1,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border,
     marginTop: 3,
   },
 
@@ -656,49 +706,52 @@ const styles = StyleSheet.create({
   fichajeType: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.ink,
   },
 
   fichajeOrigin: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: colors.inkFaint,
     marginTop: 2,
   },
 
   fichajeTime: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
   },
 
   emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
     padding: 30,
     alignItems: "center",
     marginTop: 4,
   },
 
   emptyIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: "#F3F4F6",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
   },
 
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.ink,
     marginBottom: 6,
   },
 
   emptyText: {
     fontSize: 13,
-    color: "#6B7280",
+    color: colors.inkMuted,
     textAlign: "center",
     lineHeight: 19,
   },
