@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -5,29 +6,59 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { colors } from "../src/theme";
+
 import {
   crearFichaje,
   Fichaje,
+  getMisCorreccionesPendientes,
   getUltimoFichaje,
 } from "../src/api/fichajes";
+
 import { getUser, logout } from "../src/storage/auth";
 import { Usuario } from "../src/types/auth";
 
 export default function HomeScreen() {
-  const [ultimoFichaje, setUltimoFichaje] = useState<Fichaje | null>(null);
+  const insets = useSafeAreaInsets();
+
+  const [ultimoFichaje, setUltimoFichaje] =
+    useState<Fichaje | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [fichando, setFichando] = useState(false);
   const [ahora, setAhora] = useState(new Date());
+
   const [tipoRealizado, setTipoRealizado] = useState<
     "ENTRADA" | "SALIDA" | null
   >(null);
+
   const [error, setError] = useState("");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [usarGps, setUsarGps] = useState(true);
+
+  const [correccionesPendientes, setCorreccionesPendientes] =
+    useState(0);
+
+  async function cargarCorreccionesPendientes() {
+    try {
+      const datos =
+        await getMisCorreccionesPendientes();
+
+      setCorreccionesPendientes(datos.length);
+    } catch (err) {
+      // No bloqueamos la pantalla principal si esto falla:
+      // simplemente no mostramos el aviso.
+      console.error(err);
+    }
+  }
 
   async function cargarUltimoFichaje() {
     try {
@@ -38,13 +69,26 @@ export default function HomeScreen() {
       setUltimoFichaje(fichaje);
     } catch (err) {
       console.error(err);
-      setError("No se ha podido cargar tu último fichaje");
+      setError(
+        "No se ha podido cargar tu último fichaje"
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleFichaje(tipo: "ENTRADA" | "SALIDA") {
+  async function cargarUsuario() {
+    try {
+      const user = await getUser();
+      setUsuario(user);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleFichaje(
+    tipo: "ENTRADA" | "SALIDA"
+  ) {
     try {
       setFichando(true);
       setError("");
@@ -56,16 +100,20 @@ export default function HomeScreen() {
         const { status } =
           await Location.requestForegroundPermissionsAsync();
 
-        if (status !== Location.PermissionStatus.GRANTED) {
+        if (
+          status !==
+          Location.PermissionStatus.GRANTED
+        ) {
           setError(
             "Necesitamos permiso de ubicación para registrar el fichaje con GPS"
           );
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+        const location =
+          await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
 
         latitud = location.coords.latitude;
         longitud = location.coords.longitude;
@@ -85,7 +133,9 @@ export default function HomeScreen() {
       }, 2200);
     } catch (err) {
       console.error(err);
-      setError("No se ha podido registrar el fichaje");
+      setError(
+        "No se ha podido registrar el fichaje"
+      );
     } finally {
       setFichando(false);
     }
@@ -105,7 +155,6 @@ export default function HomeScreen() {
           style: "destructive",
           onPress: async () => {
             await logout();
-
             router.replace("/login");
           },
         },
@@ -115,13 +164,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     cargarUltimoFichaje();
-
-    async function cargarUsuario() {
-      const user = await getUser();
-      setUsuario(user);
-    }
-
     cargarUsuario();
+    cargarCorreccionesPendientes();
   }, []);
 
   useEffect(() => {
@@ -129,32 +173,46 @@ export default function HomeScreen() {
       setAhora(new Date());
     }, 1000);
 
-    return () => clearInterval(intervalo);
+    return () => {
+      clearInterval(intervalo);
+    };
   }, []);
 
   function formatearHora(fecha: string) {
-    return new Date(fecha).toLocaleTimeString("es-ES", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return new Date(fecha).toLocaleTimeString(
+      "es-ES",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
   }
 
   function saludo() {
-    const hora = new Date().getHours();
+    const hora = ahora.getHours();
 
-    if (hora < 12) return "Buenos días";
-    if (hora < 20) return "Buenas tardes";
+    if (hora < 12) {
+      return "Buenos días";
+    }
+
+    if (hora < 20) {
+      return "Buenas tardes";
+    }
+
     return "Buenas noches";
   }
 
-  function formatearFechaFichaje(fecha: string) {
+  function formatearFechaFichaje(
+    fecha: string
+  ) {
     const fechaFichaje = new Date(fecha);
     const hoy = new Date();
 
     const mismoDia =
       fechaFichaje.getDate() === hoy.getDate() &&
       fechaFichaje.getMonth() === hoy.getMonth() &&
-      fechaFichaje.getFullYear() === hoy.getFullYear();
+      fechaFichaje.getFullYear() ===
+        hoy.getFullYear();
 
     if (mismoDia) {
       return "Hoy";
@@ -166,22 +224,43 @@ export default function HomeScreen() {
     const esAyer =
       fechaFichaje.getDate() === ayer.getDate() &&
       fechaFichaje.getMonth() === ayer.getMonth() &&
-      fechaFichaje.getFullYear() === ayer.getFullYear();
+      fechaFichaje.getFullYear() ===
+        ayer.getFullYear();
 
     if (esAyer) {
       return "Ayer";
     }
 
-    return fechaFichaje.toLocaleDateString("es-ES", {
-      day: "numeric",
-      month: "short",
-    });
+    return fechaFichaje.toLocaleDateString(
+      "es-ES",
+      {
+        day: "numeric",
+        month: "short",
+      }
+    );
   }
+
+  // La acción que probablemente toca ahora: si el último fichaje fue una
+  // entrada, lo lógico es que ahora venga una salida (y viceversa). Esto
+  // decide qué botón mostramos como principal, para que el trabajador no
+  // tenga que pensar cuál le toca.
+  const siguienteAccion: "ENTRADA" | "SALIDA" =
+    ultimoFichaje?.tipo === "ENTRADA"
+      ? "SALIDA"
+      : "ENTRADA";
+
+  const otraAccion: "ENTRADA" | "SALIDA" =
+    siguienteAccion === "ENTRADA"
+      ? "SALIDA"
+      : "ENTRADA";
 
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator
+          size="large"
+          color={colors.accent}
+        />
       </View>
     );
   }
@@ -190,7 +269,11 @@ export default function HomeScreen() {
     return (
       <View style={styles.successScreen}>
         <View style={styles.successCircle}>
-          <Text style={styles.successCheck}>✓</Text>
+          <Feather
+            name="check"
+            size={44}
+            color={colors.confirm}
+          />
         </View>
 
         <Text style={styles.successTitle}>
@@ -199,68 +282,97 @@ export default function HomeScreen() {
 
         <Text style={styles.successTime}>
           {ultimoFichaje
-            ? formatearHora(ultimoFichaje.fecha_hora)
+            ? formatearHora(
+                ultimoFichaje.fecha_hora
+              )
             : ""}
         </Text>
 
         <Text style={styles.successSubtitle}>
-          Tu fichaje se ha registrado correctamente
+          Tu fichaje se ha registrado
+          correctamente
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+        },
+      ]}
+    >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>SIScentro</Text>
+        <View style={styles.headerInfo}>
+          <Text style={styles.brand}>
+            SIScentro
+          </Text>
 
           <Text style={styles.greeting}>
-            {saludo()}, {usuario?.nombre || ""}
+            {saludo()}
+            {usuario?.nombre
+              ? ", " + usuario.nombre
+              : ""}
           </Text>
 
           <Text style={styles.clock}>
-            {ahora.toLocaleTimeString("es-ES", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {ahora.toLocaleTimeString(
+              "es-ES",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            )}
           </Text>
 
           <Text style={styles.today}>
-            {ahora.toLocaleDateString("es-ES", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
-          </Text>
-
-          <Text style={styles.environment}>
-            SIScentro · Producción
+            {ahora.toLocaleDateString(
+              "es-ES",
+              {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              }
+            )}
           </Text>
         </View>
 
         <Pressable
           style={styles.profile}
           onPress={handleLogout}
+          hitSlop={8}
         >
-          <Text style={styles.profileText}>👤</Text>
+          <Feather
+            name="log-out"
+            size={19}
+            color={colors.inkMuted}
+          />
         </Pressable>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.question}>
-          ¿Qué quieres hacer?
-        </Text>
-
-        <Pressable
-          style={styles.gpsOption}
-          onPress={() => setUsarGps((valor) => !valor)}
-        >
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[
+          styles.contentContainer,
+          {
+            paddingBottom:
+              insets.bottom + 24,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.gpsOption}>
           <View style={styles.gpsInfo}>
-            <Text style={styles.gpsIcon}>📍</Text>
+            <Feather
+              name="map-pin"
+              size={18}
+              color={colors.inkMuted}
+            />
 
-            <View>
+            <View style={styles.gpsTextGroup}>
               <Text style={styles.gpsTitle}>
                 Ubicación GPS
               </Text>
@@ -273,26 +385,22 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View
-            style={[
-              styles.gpsSwitch,
-              usarGps && styles.gpsSwitchActive,
-            ]}
-          >
-            <View
-              style={[
-                styles.gpsSwitchThumb,
-                usarGps &&
-                  styles.gpsSwitchThumbActive,
-              ]}
-            />
-          </View>
-        </Pressable>
+          <Switch
+            value={usarGps}
+            onValueChange={setUsarGps}
+            trackColor={{
+              false: colors.border,
+              true: colors.accent,
+            }}
+            thumbColor={colors.surface}
+            ios_backgroundColor={colors.border}
+          />
+        </View>
 
         <View style={styles.lastCard}>
           <View>
             <Text style={styles.lastLabel}>
-              ÚLTIMO FICHAJE
+              Último fichaje
             </Text>
 
             {ultimoFichaje ? (
@@ -304,8 +412,8 @@ export default function HomeScreen() {
                 <Text style={styles.lastDate}>
                   {formatearFechaFichaje(
                     ultimoFichaje.fecha_hora
-                  )}{" "}
-                  ·{" "}
+                  )}
+                  {" · "}
                   {formatearHora(
                     ultimoFichaje.fecha_hora
                   )}
@@ -321,103 +429,109 @@ export default function HomeScreen() {
           <View
             style={[
               styles.statusDot,
-              ultimoFichaje?.tipo === "SALIDA" &&
-                styles.statusDotSalida,
+              ultimoFichaje?.tipo ===
+                "ENTRADA" &&
+                styles.statusDotActive,
             ]}
           />
         </View>
 
         {error ? (
-          <Text style={styles.error}>{error}</Text>
+          <Text style={styles.error}>
+            {error}
+          </Text>
         ) : null}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.entradaButton,
-            pressed && styles.actionPressed,
-            fichando && styles.disabled,
-          ]}
-          disabled={fichando}
-          onPress={() => handleFichaje("ENTRADA")}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>↓</Text>
-          </View>
+        {renderBotonFichaje(
+          siguienteAccion,
+          true
+        )}
 
-          <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>
-              ENTRADA
-            </Text>
+        {renderBotonFichaje(
+          otraAccion,
+          false
+        )}
 
-            <Text style={styles.actionSubtitle}>
-              Registrar entrada
-            </Text>
-          </View>
-
-          <Text style={styles.actionArrow}>›</Text>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.salidaButton,
-            pressed && styles.actionPressed,
-            fichando && styles.disabled,
-          ]}
-          disabled={fichando}
-          onPress={() => handleFichaje("SALIDA")}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>↑</Text>
-          </View>
-
-          <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>
-              SALIDA
-            </Text>
-
-            <Text style={styles.actionSubtitle}>
-              Registrar salida
-            </Text>
-          </View>
-
-          <Text style={styles.actionArrow}>›</Text>
-        </Pressable>
-
-        <View style={styles.actionsContainer}>
+        <View style={styles.linksContainer}>
           <Pressable
-            style={({ pressed }) => [
-              styles.historyButton,
-              pressed && styles.historyPressed,
-            ]}
-            onPress={() => router.push("/historial")}
+            style={styles.linkRow}
+            onPress={() => {
+              router.push("/historial");
+            }}
           >
-            <Text style={styles.historyIcon}>☷</Text>
+            <Feather
+              name="clock"
+              size={18}
+              color={colors.inkMuted}
+            />
 
-            <Text style={styles.historyText}>
+            <Text style={styles.linkText}>
               Ver mis fichajes
             </Text>
 
-            <Text style={styles.historyArrow}>›</Text>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.inkFaint}
+            />
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.historyButton,
-              pressed && styles.historyPressed,
-            ]}
-            onPress={() =>
-              router.push("/recordatorios")
-            }
-          >
-            <Text style={styles.historyIcon}>🔔</Text>
+          <View style={styles.linkDivider} />
 
-            <Text style={styles.historyText}>
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => {
+              router.push("/correcciones");
+            }}
+          >
+            <Feather
+              name="edit-3"
+              size={18}
+              color={colors.inkMuted}
+            />
+
+            <Text style={styles.linkText}>
+              Correcciones
+            </Text>
+
+            {correccionesPendientes > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {correccionesPendientes}
+                </Text>
+              </View>
+            )}
+
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.inkFaint}
+            />
+          </Pressable>
+
+          <View style={styles.linkDivider} />
+
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => {
+              router.push("/recordatorios");
+            }}
+          >
+            <Feather
+              name="bell"
+              size={18}
+              color={colors.inkMuted}
+            />
+
+            <Text style={styles.linkText}>
               Mis recordatorios
             </Text>
 
-            <Text style={styles.historyArrow}>›</Text>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.inkFaint}
+            />
           </Pressable>
         </View>
 
@@ -425,23 +539,106 @@ export default function HomeScreen() {
           <View style={styles.overlay}>
             <ActivityIndicator
               size="large"
-              color="#FFFFFF"
+              color={colors.surface}
             />
 
-            <Text style={styles.overlayText}>
+            <Text
+              style={styles.overlayText}
+            >
               Registrando...
             </Text>
           </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
+
+  // Botón de fichaje: uno grande y "primary" para la acción esperada,
+  // uno más discreto ("secondary") para la otra, por si hay que corregir.
+  function renderBotonFichaje(
+    tipo: "ENTRADA" | "SALIDA",
+    principal: boolean
+  ) {
+    const icono =
+      tipo === "ENTRADA" ? "log-in" : "log-out";
+
+    const etiqueta =
+      tipo === "ENTRADA"
+        ? "Registrar entrada"
+        : "Registrar salida";
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          principal
+            ? styles.actionPrimary
+            : styles.actionSecondary,
+          pressed && styles.actionPressed,
+          fichando && styles.disabled,
+        ]}
+        disabled={fichando}
+        onPress={() => {
+          handleFichaje(tipo);
+        }}
+      >
+        <View
+          style={
+            principal
+              ? styles.actionIconPrimary
+              : styles.actionIconSecondary
+          }
+        >
+          <Feather
+            name={icono}
+            size={20}
+            color={
+              principal
+                ? colors.surface
+                : colors.inkMuted
+            }
+          />
+        </View>
+
+        <View style={styles.actionText}>
+          <Text
+            style={
+              principal
+                ? styles.actionTitlePrimary
+                : styles.actionTitleSecondary
+            }
+          >
+            {tipo}
+          </Text>
+
+          <Text
+            style={
+              principal
+                ? styles.actionSubtitlePrimary
+                : styles.actionSubtitleSecondary
+            }
+          >
+            {etiqueta}
+          </Text>
+        </View>
+
+        <Feather
+          name="chevron-right"
+          size={22}
+          color={
+            principal
+              ? "rgba(255,255,255,0.7)"
+              : colors.inkFaint
+          }
+        />
+      </Pressable>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F6F7F9",
+    backgroundColor: colors.canvas,
     paddingHorizontal: 20,
   },
 
@@ -449,156 +646,227 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    transform: [{ translateY: -8 }],
+    backgroundColor: colors.canvas,
   },
 
   header: {
-    paddingTop: 62,
+    paddingTop: 18,
+    paddingBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
+  },
+
+  headerInfo: {
+    flex: 1,
   },
 
   brand: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
-    color: "#111827",
+    color: colors.ink,
+    letterSpacing: -0.2,
   },
 
   greeting: {
     fontSize: 14,
-    color: "#737983",
+    color: colors.inkMuted,
     marginTop: 3,
   },
 
   profile: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  profileText: {
-    fontSize: 20,
+    marginLeft: 12,
+    marginTop: 2,
   },
 
   content: {
     flex: 1,
-    justifyContent: "center",
   },
 
-  question: {
-    fontSize: 28,
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingTop: 12,
+  },
+
+  clock: {
+    fontSize: 44,
     fontWeight: "800",
-    color: "#111827",
-    marginBottom: 18,
+    color: colors.ink,
+    marginTop: 18,
+    letterSpacing: -1,
+  },
+
+  today: {
+    fontSize: 14,
+    color: colors.inkMuted,
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+
+  gpsOption: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 26,
+    marginBottom: 14,
+  },
+
+  gpsInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+
+  gpsTextGroup: {
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  gpsTitle: {
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+
+  gpsSubtitle: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    marginTop: 2,
   },
 
   lastCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
 
   lastLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#9AA0A8",
-    letterSpacing: 1,
-    marginBottom: 7,
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: colors.inkFaint,
+    marginBottom: 6,
   },
 
   lastType: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
+    fontSize: 19,
+    fontWeight: "700",
+    color: colors.ink,
   },
 
   lastDate: {
-    fontSize: 14,
-    color: "#737983",
-    marginTop: 4,
+    fontSize: 13,
+    color: colors.inkMuted,
+    marginTop: 3,
   },
 
   noLast: {
     fontSize: 14,
-    color: "#737983",
+    color: colors.inkMuted,
   },
 
   statusDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#22C55E",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.borderStrong,
   },
 
-  statusDotSalida: {
-    backgroundColor: "#F97316",
+  statusDotActive: {
+    backgroundColor: colors.accent,
   },
 
-  actionButton: {
-    height: 86,
-    borderRadius: 20,
+  actionPrimary: {
+    height: 84,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 18,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
-  entradaButton: {
-    backgroundColor: "#DDF7E7",
+  actionSecondary: {
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
 
-  salidaButton: {
-    backgroundColor: "#FDE5E5",
-  },
-
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
+  actionIconPrimary: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
 
-  actionIconText: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+  actionIconSecondary: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceAlt,
   },
 
   actionText: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: 14,
   },
 
-  actionTitle: {
-    fontSize: 17,
+  actionTitlePrimary: {
+    fontSize: 16.5,
     fontWeight: "800",
-    color: "#111827",
+    color: colors.surface,
+    letterSpacing: 0.2,
   },
 
-  actionSubtitle: {
-    fontSize: 13,
-    color: "#737983",
-    marginTop: 3,
+  actionSubtitlePrimary: {
+    fontSize: 12.5,
+    color: "rgba(255,255,255,0.75)",
+    marginTop: 2,
   },
 
-  actionArrow: {
-    fontSize: 30,
-    color: "#737983",
-    fontWeight: "300",
+  actionTitleSecondary: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: colors.inkMuted,
+  },
+
+  actionSubtitleSecondary: {
+    fontSize: 12,
+    color: colors.inkFaint,
+    marginTop: 2,
   },
 
   actionPressed: {
-    transform: [{ scale: 0.98 }],
     opacity: 0.85,
   },
 
@@ -606,46 +874,56 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
-  actionsContainer: {
-    gap: 10,
+  linksContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    overflow: "hidden",
   },
 
-  historyButton: {
-    height: 58,
-    borderRadius: 17,
-    backgroundColor: "#FFFFFF",
+  linkRow: {
+    height: 54,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    marginTop: 10,
+    gap: 12,
   },
 
-  historyPressed: {
-    opacity: 0.7,
+  linkDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
 
-  historyIcon: {
-    fontSize: 23,
-    color: "#111827",
-  },
-
-  historyText: {
+  linkText: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: colors.ink,
   },
 
-  historyArrow: {
-    fontSize: 28,
-    color: "#9AA0A8",
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
+  },
+
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.surface,
   },
 
   error: {
-    color: "#DC2626",
+    color: colors.danger,
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 12,
+    fontSize: 13.5,
   },
 
   overlay: {
@@ -654,13 +932,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 110,
-    backgroundColor: "#111827",
+    backgroundColor: colors.ink,
     alignItems: "center",
     justifyContent: "center",
   },
 
   overlayText: {
-    color: "#FFFFFF",
+    color: colors.surface,
     marginTop: 8,
     fontSize: 14,
     fontWeight: "600",
@@ -668,124 +946,41 @@ const styles = StyleSheet.create({
 
   successScreen: {
     flex: 1,
-    backgroundColor: "#F6F7F9",
+    backgroundColor: colors.canvas,
     alignItems: "center",
     justifyContent: "center",
     padding: 30,
   },
 
   successCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "#DDF7E7",
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.confirmSoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
   },
 
-  successCheck: {
-    fontSize: 54,
-    color: "#16A34A",
-    fontWeight: "700",
-  },
-
   successTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
-    color: "#111827",
+    color: colors.ink,
     textAlign: "center",
     textTransform: "capitalize",
   },
 
   successTime: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: "800",
-    color: "#111827",
+    color: colors.ink,
     marginTop: 8,
   },
 
   successSubtitle: {
-    fontSize: 15,
-    color: "#737983",
+    fontSize: 14.5,
+    color: colors.inkMuted,
     textAlign: "center",
     marginTop: 12,
-  },
-
-  clock: {
-    fontSize: 42,
-    fontWeight: "800",
-    color: "#111827",
-    marginTop: 18,
-    letterSpacing: -1,
-  },
-
-  today: {
-    fontSize: 14,
-    color: "#737983",
-    marginTop: 2,
-    textTransform: "capitalize",
-  },
-
-  environment: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 4,
-  },
-
-  gpsOption: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
-  },
-
-  gpsInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  gpsIcon: {
-    fontSize: 22,
-    marginRight: 12,
-  },
-
-  gpsTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-  },
-
-  gpsSubtitle: {
-    fontSize: 12,
-    color: "#737983",
-    marginTop: 3,
-  },
-
-  gpsSwitch: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#D1D5DB",
-    padding: 3,
-    justifyContent: "center",
-  },
-
-  gpsSwitchActive: {
-    backgroundColor: "#22C55E",
-  },
-
-  gpsSwitchThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#FFFFFF",
-  },
-
-  gpsSwitchThumbActive: {
-    alignSelf: "flex-end",
   },
 });
