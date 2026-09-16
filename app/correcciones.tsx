@@ -1,26 +1,27 @@
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 import {
-    AccionCorreccion,
-    CorreccionFichaje,
-    crearCorreccion,
-    getMisCorreccionesPendientes,
-    resolverCorreccion,
+  AccionCorreccion,
+  CorreccionFichaje,
+  crearCorreccion,
+  getMisCorreccionesPendientes,
+  resolverCorreccion,
 } from "../src/api/fichajes";
 import { colors } from "../src/theme";
 
@@ -31,6 +32,13 @@ function inicioDelDia(fecha: Date) {
 }
 
 export default function CorreccionesScreen() {
+  const params = useLocalSearchParams<{
+    modo?: string;
+    fichajeId?: string;
+    tipo?: string;
+    fechaHora?: string;
+  }>();
+
   const [pendientes, setPendientes] = useState<
     CorreccionFichaje[]
   >([]);
@@ -42,6 +50,17 @@ export default function CorreccionesScreen() {
 
   const [modalVisible, setModalVisible] =
     useState(false);
+
+  // "crear": pedir un fichaje nuevo (p. ej. "olvidé fichar").
+  // "modificar": corregir hora/tipo de un fichaje ya existente.
+  // "anular": pedir que se elimine un fichaje ya existente.
+  const [modo, setModo] = useState<
+    "crear" | "modificar" | "anular"
+  >("crear");
+
+  const [fichajeId, setFichajeId] = useState<
+    number | null
+  >(null);
 
   const [tipo, setTipo] = useState<
     "ENTRADA" | "SALIDA"
@@ -62,6 +81,46 @@ export default function CorreccionesScreen() {
     useState(false);
 
   const [enviando, setEnviando] = useState(false);
+
+  // Si venimos de "historial" con un fichaje seleccionado (modificar
+  // o anular), abrimos el formulario ya relleno con sus datos.
+  useEffect(() => {
+    if (
+      !params.fichajeId ||
+      !params.modo ||
+      (params.modo !== "modificar" &&
+        params.modo !== "anular")
+    ) {
+      return;
+    }
+
+    setModo(params.modo);
+    setFichajeId(Number(params.fichajeId));
+
+    if (
+      params.tipo === "ENTRADA" ||
+      params.tipo === "SALIDA"
+    ) {
+      setTipo(params.tipo);
+    }
+
+    if (params.fechaHora) {
+      const fechaOriginal = new Date(
+        params.fechaHora
+      );
+
+      setFecha(inicioDelDia(fechaOriginal));
+      setHora(fechaOriginal);
+    }
+
+    setMotivo("");
+    setModalVisible(true);
+  }, [
+    params.fichajeId,
+    params.modo,
+    params.tipo,
+    params.fechaHora,
+  ]);
 
   const cargarPendientes = useCallback(async () => {
     try {
@@ -131,6 +190,8 @@ export default function CorreccionesScreen() {
   }
 
   function abrirFormulario() {
+    setModo("crear");
+    setFichajeId(null);
     setTipo("ENTRADA");
     setFecha(inicioDelDia(new Date()));
     setHora(new Date());
@@ -192,7 +253,9 @@ export default function CorreccionesScreen() {
     if (!motivoSeguro) {
       Alert.alert(
         "Falta el motivo",
-        "Cuéntale brevemente a tu empresa por qué necesitas este fichaje."
+        modo === "anular"
+          ? "Cuéntale brevemente a tu empresa por qué hay que anular este fichaje."
+          : "Cuéntale brevemente a tu empresa por qué necesitas este fichaje."
       );
       return;
     }
@@ -210,12 +273,26 @@ export default function CorreccionesScreen() {
     try {
       setEnviando(true);
 
-      await crearCorreccion({
-        tipoSolicitud: "CREAR",
-        tipoPropuesto: tipo,
-        fechaHoraPropuesta,
-        motivo: motivoSeguro,
-      });
+      if (modo === "anular") {
+        // No proponemos ni tipo ni fecha/hora nuevos: solo pedimos
+        // que se elimine el fichaje referenciado por fichajeId.
+        await crearCorreccion({
+          tipoSolicitud: "ANULAR",
+          fichajeId: fichajeId ?? undefined,
+          motivo: motivoSeguro,
+        });
+      } else {
+        await crearCorreccion({
+          tipoSolicitud:
+            modo === "modificar"
+              ? "MODIFICAR"
+              : "CREAR",
+          fichajeId: fichajeId ?? undefined,
+          tipoPropuesto: tipo,
+          fechaHoraPropuesta,
+          motivo: motivoSeguro,
+        });
+      }
 
       setModalVisible(false);
 
@@ -273,6 +350,8 @@ export default function CorreccionesScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
         >
           <Feather
             name="chevron-left"
@@ -452,20 +531,40 @@ export default function CorreccionesScreen() {
           setModalVisible(false)
         }
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={
+            Platform.OS === "ios"
+              ? "padding"
+              : "height"
+          }
+        >
           <View style={styles.modalContainer}>
-            <View style={styles.modalHandle} />
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={
+                styles.modalScrollContent
+              }
+            >
+              <View style={styles.modalHandle} />
 
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Solicitar fichaje
-              </Text>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {modo === "modificar"
+                    ? "Modificar fichaje"
+                    : modo === "anular"
+                    ? "Anular fichaje"
+                    : "Solicitar fichaje"}
+                </Text>
 
-              <Pressable
+                <Pressable
                 onPress={() =>
                   setModalVisible(false)
                 }
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
                 <Feather
                   name="x"
@@ -475,7 +574,36 @@ export default function CorreccionesScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.label}>Tipo</Text>
+            {modo === "anular" ? (
+              <View style={styles.anularResumen}>
+                <Feather
+                  name="alert-triangle"
+                  size={16}
+                  color={colors.danger}
+                />
+
+                <Text
+                  style={styles.anularResumenText}
+                >
+                  Vas a pedir la anulación de:{" "}
+                  <Text
+                    style={
+                      styles.anularResumenTextStrong
+                    }
+                  >
+                    {tipo === "ENTRADA"
+                      ? "Entrada"
+                      : "Salida"}
+                  </Text>{" "}
+                  · {formatearFechaCorta(fecha)} ·{" "}
+                  {formatearHoraCorta(hora)}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.label}>
+                  Tipo
+                </Text>
 
             <View style={styles.tipoSelector}>
               <Pressable
@@ -647,6 +775,8 @@ export default function CorreccionesScreen() {
                   }
                 />
               )}
+              </>
+            )}
 
             <Text style={styles.label}>Motivo</Text>
 
@@ -673,6 +803,10 @@ export default function CorreccionesScreen() {
               <Text style={styles.enviarButtonText}>
                 {enviando
                   ? "Enviando..."
+                  : modo === "modificar"
+                  ? "Guardar cambios"
+                  : modo === "anular"
+                  ? "Solicitar anulación"
                   : "Enviar solicitud"}
               </Text>
             </Pressable>
@@ -688,8 +822,9 @@ export default function CorreccionesScreen() {
                 Cancelar
               </Text>
             </Pressable>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -884,6 +1019,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    maxHeight: "88%",
+  },
+
+  modalScrollContent: {
     padding: 24,
     paddingBottom: 34,
   },
@@ -916,6 +1055,30 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     marginBottom: 8,
     marginTop: 12,
+  },
+
+  anularResumen: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
+  },
+
+  anularResumenText: {
+    flex: 1,
+    fontSize: 13.5,
+    color: colors.inkMuted,
+    lineHeight: 19,
+  },
+
+  anularResumenTextStrong: {
+    fontWeight: "700",
+    color: colors.ink,
   },
 
   tipoSelector: {

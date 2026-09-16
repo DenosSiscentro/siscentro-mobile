@@ -12,40 +12,56 @@ import {
   View,
 } from "react-native";
 
-import { Feather, Ionicons } from "@expo/vector-icons";
+import {
+  Feather,
+  Ionicons,
+} from "@expo/vector-icons";
+
 import * as LocalAuthentication from "expo-local-authentication";
 
-import { login } from "../src/api/auth";
+import { getMe, login } from "../src/api/auth";
 
 import {
   getBiometricToken,
   getBiometricUser,
+  haSidoPreguntadaBiometria,
   isBiometricEnabled,
+  marcarBiometriaPreguntada,
   saveBiometricSession,
   saveToken,
   saveUser,
-  setBiometricEnabled,
-  setSession,
+  setSession
 } from "../src/storage/auth";
+
 import { colors } from "../src/theme";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [rememberSession, setRememberSession] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
+  const [rememberSession, setRememberSession] =
+    useState(true);
 
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricEnabled, setBiometricEnabledState] = useState(false);
-  const [checkingBiometric, setCheckingBiometric] = useState(true);
+  const [showPassword, setShowPassword] =
+    useState(false);
 
-  /*
-   * Comprueba si el dispositivo dispone de biometría
-   * y si el trabajador la ha activado anteriormente.
-   */
+  const [biometricAvailable, setBiometricAvailable] =
+    useState(false);
+
+  const [biometricEnabled, setBiometricEnabledState] =
+    useState(false);
+
+  const [checkingBiometric, setCheckingBiometric] =
+    useState(true);
+
+
+  /* ============================================================
+     COMPROBAR BIOMETRÍA
+     ============================================================ */
+
   useEffect(() => {
     async function comprobarBiometria() {
       try {
@@ -58,10 +74,16 @@ export default function LoginScreen() {
         const enabled =
           await isBiometricEnabled();
 
-        setBiometricAvailable(compatible && enrolled);
+        setBiometricAvailable(
+          compatible && enrolled
+        );
+
         setBiometricEnabledState(enabled);
       } catch (err) {
-        console.error("Error comprobando biometría:", err);
+        console.error(
+          "Error comprobando biometría:",
+          err
+        );
       } finally {
         setCheckingBiometric(false);
       }
@@ -70,62 +92,107 @@ export default function LoginScreen() {
     comprobarBiometria();
   }, []);
 
-  /*
-   * Acceso mediante huella / Face ID.
-   */
+
+  /* ============================================================
+     LOGIN BIOMÉTRICO
+     ============================================================ */
+
   async function handleBiometricLogin() {
+    if (loading) {
+      return;
+    }
+
     try {
       setError("");
+      setLoading(true);
 
-      const enabled = await isBiometricEnabled();
+      const enabled =
+        await isBiometricEnabled();
 
       if (!enabled) {
         return;
       }
 
-      const token = await getBiometricToken();
-      const user = await getBiometricUser();
+      const token =
+        await getBiometricToken();
+
+      const user =
+        await getBiometricUser();
 
       if (!token || !user) {
         setError(
-          "No hay una sesión guardada. Inicia sesión con tu contraseña."
+          "No hay una sesión biométrica guardada. Inicia sesión con tu contraseña."
         );
+
         return;
       }
 
       const result =
-        await LocalAuthentication.authenticateAsync({
-          promptMessage: "Acceder a Siscentro",
-          cancelLabel: "Cancelar",
-          fallbackLabel: "Usar contraseña",
-        });
+        await LocalAuthentication.authenticateAsync(
+          {
+            promptMessage:
+              "Acceder a Siscentro",
+
+            cancelLabel:
+              "Cancelar",
+
+            fallbackLabel:
+              "Usar contraseña",
+          }
+        );
 
       if (!result.success) {
         return;
       }
 
-      setSession(token, user);
+      try {
+        const validatedUser =
+          await getMe(token);
 
-      router.replace("/home");
+        setSession(
+          token,
+          validatedUser
+        );
+
+        router.replace("/home");
+      } catch (err) {
+        console.error(
+          "Token biométrico no válido:",
+          err
+        );
+
+        // La biometría sigue activada.
+        // Solo ha dejado de ser válido el token almacenado.
+        // El siguiente login con contraseña lo renovará.
+        setError(
+          "La sesión biométrica necesita renovarse. Inicia sesión con tu contraseña."
+        );
+      }
     } catch (err) {
-      console.error("Error en autenticación biométrica:", err);
+      console.error(
+        "Error en autenticación biométrica:",
+        err
+      );
 
       setError(
         "No se ha podido utilizar la autenticación biométrica."
       );
+    } finally {
+      setLoading(false);
     }
   }
 
-  /*
-   * Si existe una sesión biométrica configurada,
-   * intentamos ofrecerla automáticamente al entrar.
-   */
-  useEffect(() => {
-    if (checkingBiometric || !biometricAvailable) {
-      return;
-    }
 
-    if (!biometricEnabled) {
+  /* ============================================================
+     OFRECER BIOMETRÍA AUTOMÁTICAMENTE (auto-login al entrar)
+     ============================================================ */
+
+  useEffect(() => {
+    if (
+      checkingBiometric ||
+      !biometricAvailable ||
+      !biometricEnabled
+    ) {
       return;
     }
 
@@ -136,12 +203,93 @@ export default function LoginScreen() {
     biometricEnabled,
   ]);
 
-  /*
-   * Login tradicional con email y contraseña.
-   */
+
+  /* ============================================================
+     PREGUNTAR SI QUIERE ACTIVAR LA HUELLA (tras 1er login normal)
+     ============================================================ */
+
+  function offerBiometricSetup(
+    token: string,
+    user: any
+  ) {
+    Alert.alert(
+      "Acceso más rápido",
+      "¿Quieres usar tu huella o Face ID para acceder a Siscentro la próxima vez?",
+      [
+        {
+          text: "Ahora no",
+          style: "cancel",
+          onPress: async () => {
+            await marcarBiometriaPreguntada();
+            router.replace("/home");
+          },
+        },
+        {
+          text: "Activar",
+          onPress: async () => {
+            await marcarBiometriaPreguntada();
+            await confirmarYActivarBiometria(
+              token,
+              user
+            );
+          },
+        },
+      ]
+    );
+  }
+
+  async function confirmarYActivarBiometria(
+    token: string,
+    user: any
+  ) {
+    try {
+      const result =
+        await LocalAuthentication.authenticateAsync(
+          {
+            promptMessage:
+              "Confirma tu huella para activarla",
+
+            cancelLabel:
+              "Cancelar",
+          }
+        );
+
+      if (result.success) {
+        await saveBiometricSession(
+          token,
+          user
+        );
+
+        setBiometricEnabledState(true);
+      }
+    } catch (err) {
+      console.error(
+        "Error activando biometría:",
+        err
+      );
+    } finally {
+      router.replace("/home");
+    }
+  }
+
+
+  /* ============================================================
+     LOGIN NORMAL
+     ============================================================ */
+
   async function handleLogin() {
-    if (!email.trim() || !password) {
-      setError("Introduce tu email y contraseña");
+    if (loading) {
+      return;
+    }
+
+    if (
+      !email.trim() ||
+      !password
+    ) {
+      setError(
+        "Introduce tu email y contraseña"
+      );
+
       return;
     }
 
@@ -149,81 +297,88 @@ export default function LoginScreen() {
     setError("");
 
     try {
-      const result = await login(
-        email.trim(),
-        password
+      const result =
+        await login(
+          email.trim(),
+          password
+        );
+
+      /**
+       * Siempre establecemos la sesión actual
+       * en memoria.
+       */
+      setSession(
+        result.access_token,
+        result.user
       );
 
+      /**
+       * Si el usuario quiere mantener la sesión,
+       * también la guardamos de forma persistente.
+       */
       if (rememberSession) {
-        await saveToken(result.access_token);
-        await saveUser(result.user);
-      } else {
-        setSession(
-          result.access_token,
+        await saveToken(
+          result.access_token
+        );
+
+        await saveUser(
           result.user
         );
       }
 
-      /*
-       * Si el dispositivo dispone de biometría y el usuario
-       * ha decidido mantener la sesión, ofrecemos activarla.
+      /**
+       * Si la biometría ya estaba activada, actualizamos siempre
+       * sus credenciales con el nuevo token.
+       *
+       * "Mantener la sesión abierta" controla la sesión normal
+       * persistente y NO debe desactivar ni romper la biometría.
        */
+      const biometricAlreadyEnabled =
+        await isBiometricEnabled();
+
+      if (biometricAlreadyEnabled) {
+        await saveBiometricSession(
+          result.access_token,
+          result.user
+        );
+
+        setBiometricEnabledState(true);
+
+        router.replace("/home");
+
+        return;
+      }
+
+      /**
+       * Todavía no tiene la biometría activada: si el dispositivo
+       * la soporta y nunca se le ha preguntado, se lo ofrecemos
+       * ahora, justo después de este primer login con contraseña.
+       */
+      const yaPreguntado =
+        await haSidoPreguntadaBiometria();
+
       if (
         biometricAvailable &&
-        rememberSession &&
-        !biometricEnabled
+        !yaPreguntado
       ) {
-        Alert.alert(
-          "Acceso con huella",
-          "¿Quieres activar el acceso con huella o Face ID para entrar más rápidamente a Siscentro?",
-          [
-            {
-              text: "Ahora no",
-              style: "cancel",
-            },
-            {
-              text: "Activar",
-              onPress: async () => {
-                try {
-                  const biometricResult =
-                    await LocalAuthentication.authenticateAsync(
-                      {
-                        promptMessage:
-                          "Confirma la activación de la biometría",
-                        cancelLabel: "Cancelar",
-                        fallbackLabel:
-                          "Usar contraseña",
-                        disableDeviceFallback: false,
-                      }
-                    );
-
-                  if (biometricResult.success) {
-                    await saveBiometricSession(
-                      result.access_token,
-                      result.user
-                    );
-
-                    await setBiometricEnabled(true);
-                    setBiometricEnabledState(true);
-                  }
-                } catch (err) {
-                  console.error(
-                    "Error activando biometría:",
-                    err
-                  );
-                }
-              },
-            },
-          ]
+        offerBiometricSetup(
+          result.access_token,
+          result.user
         );
+
+        return;
       }
 
       router.replace("/home");
     } catch (err: any) {
       console.error(err);
 
-      if (err.message?.includes("401")) {
-        setError("Email o contraseña incorrectos");
+      if (
+        err?.message?.includes("401")
+      ) {
+        setError(
+          "Email o contraseña incorrectos"
+        );
       } else {
         setError(
           "No se ha podido conectar con Siscentro"
@@ -234,6 +389,11 @@ export default function LoginScreen() {
     }
   }
 
+
+  /* ============================================================
+     UI
+     ============================================================ */
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -243,45 +403,71 @@ export default function LoginScreen() {
           : "height"
       }
     >
-      <View style={styles.backgroundCircle} />
+      <View
+        style={
+          styles.backgroundCircle
+        }
+      />
 
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Text style={styles.logoIconText}>
+        <View
+          style={styles.logoContainer}
+        >
+          <View
+            style={styles.logoIcon}
+          >
+            <Text
+              style={
+                styles.logoIconText
+              }
+            >
               S
             </Text>
           </View>
 
-          <Text style={styles.logo}>
+          <Text
+            style={styles.logo}
+          >
             SIScentro
           </Text>
 
-          <Text style={styles.subtitle}>
+          <Text
+            style={styles.subtitle}
+          >
             Control horario sencillo
           </Text>
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.welcome}>
+          <Text
+            style={styles.welcome}
+          >
             Bienvenido
           </Text>
 
-          <Text style={styles.description}>
+          <Text
+            style={styles.description}
+          >
             Inicia sesión para registrar tu jornada.
           </Text>
 
           <View style={styles.field}>
-            <Text style={styles.label}>
+            <Text
+              style={styles.label}
+            >
               Email
             </Text>
 
             <TextInput
               style={styles.input}
               placeholder="tu@email.com"
-              placeholderTextColor={colors.inkFaint}
+              placeholderTextColor={
+                colors.inkFaint
+              }
               value={email}
-              onChangeText={setEmail}
+              onChangeText={
+                setEmail
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -289,30 +475,53 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>
+            <Text
+              style={styles.label}
+            >
               Contraseña
             </Text>
 
-            <View style={styles.passwordContainer}>
+            <View
+              style={
+                styles.passwordContainer
+              }
+            >
               <TextInput
-                style={styles.passwordInput}
+                style={
+                  styles.passwordInput
+                }
                 placeholder="Tu contraseña"
-                placeholderTextColor={colors.inkFaint}
+                placeholderTextColor={
+                  colors.inkFaint
+                }
                 value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                onChangeText={
+                  setPassword
+                }
+                secureTextEntry={
+                  !showPassword
+                }
                 autoCapitalize="none"
                 autoCorrect={false}
               />
 
               <Pressable
-                style={styles.eyeButton}
+                style={
+                  styles.eyeButton
+                }
                 onPress={() =>
                   setShowPassword(
-                    (value) => !value
+                    (value) =>
+                      !value
                   )
                 }
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword
+                    ? "Ocultar contraseña"
+                    : "Mostrar contraseña"
+                }
               >
                 <Feather
                   name={
@@ -321,19 +530,29 @@ export default function LoginScreen() {
                       : "eye"
                   }
                   size={19}
-                  color={colors.inkMuted}
+                  color={
+                    colors.inkMuted
+                  }
                 />
               </Pressable>
             </View>
           </View>
 
           <Pressable
-            style={styles.rememberRow}
+            style={
+              styles.rememberRow
+            }
             onPress={() =>
               setRememberSession(
-                (value) => !value
+                (value) =>
+                  !value
               )
             }
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked:
+                rememberSession,
+            }}
           >
             <View
               style={[
@@ -346,25 +565,39 @@ export default function LoginScreen() {
                 <Feather
                   name="check"
                   size={14}
-                  color={colors.surface}
+                  color={
+                    colors.surface
+                  }
                 />
               ) : null}
             </View>
 
-            <Text style={styles.rememberText}>
+            <Text
+              style={
+                styles.rememberText
+              }
+            >
               Mantener la sesión abierta
             </Text>
           </Pressable>
 
           {error ? (
-            <View style={styles.errorBox}>
+            <View
+              style={
+                styles.errorBox
+              }
+            >
               <Feather
                 name="alert-circle"
                 size={16}
-                color={colors.danger}
+                color={
+                  colors.danger
+                }
               />
 
-              <Text style={styles.error}>
+              <Text
+                style={styles.error}
+              >
                 {error}
               </Text>
             </View>
@@ -378,24 +611,36 @@ export default function LoginScreen() {
               loading &&
                 styles.buttonDisabled,
             ]}
-            onPress={handleLogin}
+            onPress={
+              handleLogin
+            }
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator
-                color={colors.surface}
+                color={
+                  colors.surface
+                }
               />
             ) : (
               <>
-                <Text style={styles.buttonText}>
+                <Text
+                  style={
+                    styles.buttonText
+                  }
+                >
                   Entrar
                 </Text>
 
                 <Feather
                   name="arrow-right"
                   size={18}
-                  color={colors.surface}
-                  style={styles.arrowIcon}
+                  color={
+                    colors.surface
+                  }
+                  style={
+                    styles.arrowIcon
+                  }
                 />
               </>
             )}
@@ -404,8 +649,12 @@ export default function LoginScreen() {
           {biometricAvailable &&
           biometricEnabled ? (
             <Pressable
-              style={styles.biometricButton}
-              onPress={handleBiometricLogin}
+              style={
+                styles.biometricButton
+              }
+              onPress={
+                handleBiometricLogin
+              }
               disabled={loading}
             >
               <Ionicons
@@ -425,7 +674,9 @@ export default function LoginScreen() {
           ) : null}
         </View>
 
-        <Text style={styles.footer}>
+        <Text
+          style={styles.footer}
+        >
           SIScentro · Control horario
         </Text>
       </View>
@@ -433,10 +684,12 @@ export default function LoginScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor:
+      colors.canvas,
   },
 
   backgroundCircle: {
@@ -444,14 +697,16 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: colors.accentSoft,
+    backgroundColor:
+      colors.accentSoft,
     top: -130,
     right: -100,
   },
 
   content: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent:
+      "center",
     paddingHorizontal: 24,
   },
 
@@ -464,9 +719,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 16,
-    backgroundColor: colors.accent,
+    backgroundColor:
+      colors.accent,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
     marginBottom: 14,
   },
 
@@ -490,9 +747,11 @@ const styles = StyleSheet.create({
   },
 
   form: {
-    backgroundColor: colors.surface,
+    backgroundColor:
+      colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor:
+      colors.border,
     borderRadius: 16,
     padding: 24,
   },
@@ -523,9 +782,11 @@ const styles = StyleSheet.create({
 
   input: {
     height: 50,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor:
+      colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor:
+      colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15.5,
@@ -534,9 +795,11 @@ const styles = StyleSheet.create({
 
   passwordContainer: {
     height: 50,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor:
+      colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor:
+      colors.border,
     borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -554,7 +817,8 @@ const styles = StyleSheet.create({
     height: 50,
     paddingHorizontal: 12,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
   },
 
   rememberRow: {
@@ -569,15 +833,19 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: colors.borderStrong,
+    borderColor:
+      colors.borderStrong,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
     marginRight: 10,
   },
 
   checkboxChecked: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor:
+      colors.accent,
+    borderColor:
+      colors.accent,
   },
 
   rememberText: {
@@ -589,9 +857,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor:
+      colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor:
+      colors.border,
     borderRadius: 10,
     padding: 11,
     marginBottom: 14,
@@ -606,10 +876,12 @@ const styles = StyleSheet.create({
   button: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: colors.accent,
+    backgroundColor:
+      colors.accent,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
   },
 
   buttonPressed: {
@@ -634,10 +906,12 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor:
+      colors.border,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
     marginTop: 12,
     gap: 9,
   },

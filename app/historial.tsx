@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,11 +12,8 @@ import {
   View,
 } from "react-native";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getToken } from "../src/storage/auth";
+import { authenticatedFetch } from "../src/api/client";
 import { colors } from "../src/theme";
-
-const API_URL = "https://ncontrol.siscentro.com/api/v1";
 
 interface Fichaje {
   id: number;
@@ -24,6 +22,9 @@ interface Fichaje {
   fecha_hora: string;
   tipo: "ENTRADA" | "SALIDA";
   origen: string;
+  estado_registro: string;
+  tipo_registro: string;
+  fichaje_original_id: number | null;
   latitud: number | null;
   longitud: number | null;
   motivo: string | null;
@@ -44,7 +45,6 @@ interface Dia {
 }
 
 export default function HistorialScreen() {
-  const insets = useSafeAreaInsets();
   const [fichajes, setFichajes] = useState<Fichaje[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,20 +56,8 @@ export default function HistorialScreen() {
     try {
       setError("");
 
-      const token = await getToken();
-
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch(
-        `${API_URL}/fichajes?page=1&page_size=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const response = await authenticatedFetch(
+        "/fichajes?page=1&page_size=100"
       );
 
       if (!response.ok) {
@@ -80,6 +68,19 @@ export default function HistorialScreen() {
 
       setFichajes(data.items);
     } catch (err) {
+      const mensaje =
+        err instanceof Error ? err.message : "";
+
+      // "No hay sesión" y "Sesión caducada" ya han sido gestionados
+      // por authenticatedFetch (redirige a /login por su cuenta):
+      // no mostramos ningún error, solo dejamos que navegue.
+      if (
+        mensaje === "No hay sesión" ||
+        mensaje === "Sesión caducada"
+      ) {
+        return;
+      }
+
       console.error(err);
       setError("No se ha podido cargar el historial");
     } finally {
@@ -129,16 +130,20 @@ export default function HistorialScreen() {
     );
   }
 
-  const fichajesMes = useMemo(() => {
-    return fichajes.filter((fichaje) => {
-      const fecha = new Date(fichaje.fecha_hora);
+const fichajesMes = useMemo(() => {
+  return fichajes.filter((fichaje) => {
+    if (fichaje.estado_registro !== "ACTIVO") {
+      return false;
+    }
 
-      return (
-        fecha.getMonth() === mesActual.getMonth() &&
-        fecha.getFullYear() === mesActual.getFullYear()
-      );
-    });
-  }, [fichajes, mesActual]);
+    const fecha = new Date(fichaje.fecha_hora);
+
+    return (
+      fecha.getMonth() === mesActual.getMonth() &&
+      fecha.getFullYear() === mesActual.getFullYear()
+    );
+  });
+}, [fichajes, mesActual]);
 
   const dias = useMemo(() => {
     const agrupados: Record<string, Fichaje[]> = {};
@@ -230,6 +235,52 @@ export default function HistorialScreen() {
     }
   );
 
+  function seleccionarFichaje(fichaje: Fichaje) {
+    const etiquetaTipo =
+      fichaje.tipo === "ENTRADA"
+        ? "Entrada"
+        : "Salida";
+
+    const etiquetaHora = formatearHora(
+      fichaje.fecha_hora
+    );
+
+    Alert.alert(
+      `${etiquetaTipo} · ${etiquetaHora}`,
+      "¿Qué quieres hacer con este fichaje?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Modificar",
+          onPress: () =>
+            router.push({
+              pathname: "/correcciones",
+              params: {
+                modo: "modificar",
+                fichajeId: String(fichaje.id),
+                tipo: fichaje.tipo,
+                fechaHora: fichaje.fecha_hora,
+              },
+            }),
+        },
+        {
+          text: "Anular fichaje",
+          style: "destructive",
+          onPress: () =>
+            router.push({
+              pathname: "/correcciones",
+              params: {
+                modo: "anular",
+                fichajeId: String(fichaje.id),
+                tipo: fichaje.tipo,
+                fechaHora: fichaje.fecha_hora,
+              },
+            }),
+        },
+      ]
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -242,17 +293,41 @@ export default function HistorialScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 12 },
-      ]}
-    >
-      <View style={styles.monthSelector}>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+        >
+          <Feather
+            name="chevron-left"
+            size={22}
+            color={colors.ink}
+          />
+        </Pressable>
+
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.title}>
+            Historial
+          </Text>
+
+          <Text style={styles.subtitle}>
+            Tus fichajes y horas trabajadas
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.body}>
+        <View style={styles.monthSelector}>
         <Pressable
           style={styles.monthButton}
           onPress={() => cambiarMes(-1)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Mes anterior"
         >
           <Feather
             name="chevron-left"
@@ -270,6 +345,8 @@ export default function HistorialScreen() {
           style={styles.monthButton}
           onPress={() => cambiarMes(1)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Mes siguiente"
         >
           <Feather
             name="chevron-right"
@@ -277,9 +354,9 @@ export default function HistorialScreen() {
             color={colors.ink}
           />
         </Pressable>
-      </View>
+        </View>
 
-      <ScrollView
+        <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -417,11 +494,26 @@ export default function HistorialScreen() {
               <View style={styles.timeline}>
                 {dia.fichajes.map(
                   (fichaje, index) => (
-                    <View
+                    <Pressable
                       key={fichaje.id}
-                      style={
-                        styles.timelineItem
+                      style={({ pressed }) => [
+                        styles.timelineItem,
+                        pressed &&
+                          styles.timelineItemPressed,
+                      ]}
+                      onPress={() =>
+                        seleccionarFichaje(
+                          fichaje
+                        )
                       }
+                      accessibilityRole="button"
+                      accessibilityLabel={`${
+                        fichaje.tipo === "ENTRADA"
+                          ? "Entrada"
+                          : "Salida"
+                      } a las ${formatearHora(
+                        fichaje.fecha_hora
+                      )}. Toca para modificar o anular.`}
                     >
                       <View
                         style={
@@ -455,16 +547,46 @@ export default function HistorialScreen() {
                         }
                       >
                         <View>
-                          <Text
+                          <View
                             style={
-                              styles.fichajeType
+                              styles.fichajeTypeRow
                             }
                           >
-                            {fichaje.tipo ===
-                            "ENTRADA"
-                              ? "Entrada"
-                              : "Salida"}
-                          </Text>
+                            <Text
+                              style={
+                                styles.fichajeType
+                              }
+                            >
+                              {fichaje.tipo ===
+                              "ENTRADA"
+                                ? "Entrada"
+                                : "Salida"}
+                            </Text>
+
+                            {fichaje.fichaje_original_id !=
+                            null ? (
+                              <View
+                                style={
+                                  styles.correctedBadge
+                                }
+                              >
+                                <Feather
+                                  name="edit-3"
+                                  size={10}
+                                  color={
+                                    colors.inkMuted
+                                  }
+                                />
+                                <Text
+                                  style={
+                                    styles.correctedBadgeText
+                                  }
+                                >
+                                  Corregido
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
 
                           <Text
                             style={
@@ -475,17 +597,31 @@ export default function HistorialScreen() {
                           </Text>
                         </View>
 
-                        <Text
+                        <View
                           style={
-                            styles.fichajeTime
+                            styles.fichajeTimeGroup
                           }
                         >
-                          {formatearHora(
-                            fichaje.fecha_hora
-                          )}
-                        </Text>
+                          <Text
+                            style={
+                              styles.fichajeTime
+                            }
+                          >
+                            {formatearHora(
+                              fichaje.fecha_hora
+                            )}
+                          </Text>
+
+                          <Feather
+                            name="chevron-right"
+                            size={16}
+                            color={
+                              colors.inkFaint
+                            }
+                          />
+                        </View>
                       </View>
-                    </View>
+                    </Pressable>
                   )
                 )}
               </View>
@@ -494,7 +630,8 @@ export default function HistorialScreen() {
         )}
 
         <View style={styles.bottomSpace} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -503,7 +640,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.canvas,
+  },
+
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  backButton: {
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+    marginLeft: -6,
+  },
+
+  headerTitleContainer: {
+    flex: 1,
+  },
+
+  title: {
+    fontSize: 21,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -0.2,
+  },
+
+  subtitle: {
+    marginTop: 3,
+    fontSize: 13.5,
+    color: colors.inkMuted,
+  },
+
+  body: {
+    flex: 1,
     paddingHorizontal: 18,
+    paddingTop: 16,
   },
 
   center: {
@@ -668,6 +847,10 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
 
+  timelineItemPressed: {
+    opacity: 0.6,
+  },
+
   timelineLeft: {
     width: 26,
     alignItems: "center",
@@ -703,6 +886,30 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
 
+  fichajeTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  correctedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  correctedBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "600",
+    color: colors.inkMuted,
+  },
+
   fichajeType: {
     fontSize: 14,
     fontWeight: "600",
@@ -713,6 +920,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inkFaint,
     marginTop: 2,
+  },
+
+  fichajeTimeGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
   },
 
   fichajeTime: {

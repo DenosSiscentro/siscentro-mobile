@@ -1,8 +1,10 @@
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
-import { getToken, removeToken } from "../src/storage/auth";
 import { getMe } from "../src/api/auth";
+import { getToken, removeToken } from "../src/storage/auth";
+import { colors } from "../src/theme";
 
 export default function Index() {
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,14 @@ export default function Index() {
   }, []);
 
   if (loading) {
-    return null;
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator
+          size="large"
+          color={colors.accent}
+        />
+      </View>
+    );
   }
 
   return authenticated ? (
@@ -39,3 +48,12 @@ export default function Index() {
     <Redirect href="/login" />
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.canvas,
+  },
+});

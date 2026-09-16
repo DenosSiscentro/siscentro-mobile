@@ -16,6 +16,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack>
         <Stack.Screen
+          name="index"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
           name="login"
           options={{
             headerShown: false,
@@ -42,6 +49,26 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+
+        <Stack.Screen
+          name="perfil"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="correcciones"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+  name="diagnostico-notificaciones"
+  options={{
+    headerShown: false,
+  }}
+/>
       </Stack>
     </SafeAreaProvider>
   );

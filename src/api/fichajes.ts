@@ -73,7 +73,14 @@ export async function crearFichaje(
 // que aquí solo cubrimos ese lado del flujo.
 // ============================================================
 
-export type TipoSolicitudCorreccion = "CREAR" | "MODIFICAR";
+// "ANULAR" todavía NO existe en el backend (el esquema actual solo
+// acepta CREAR | MODIFICAR) — se añade aquí para que el móvil ya esté
+// listo en cuanto el backend lo soporte. Hasta entonces, enviar una
+// solicitud con este valor devolverá un error de validación (422).
+export type TipoSolicitudCorreccion =
+  | "CREAR"
+  | "MODIFICAR"
+  | "ANULAR";
 
 export type AccionCorreccion = "APROBAR" | "RECHAZAR";
 

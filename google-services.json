@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1044190784858",
+    "project_id": "siscentro-cf00b",
+    "storage_bucket": "siscentro-cf00b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1044190784858:android:a3d4bfc520df0682141763",
+        "android_client_info": {
+          "package_name": "com.denos2000.siscentromobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC27zMzPHsBy_1zdpNG58Wkf5o1ExMDsb4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

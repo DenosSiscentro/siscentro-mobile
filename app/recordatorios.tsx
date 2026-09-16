@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -23,14 +24,15 @@ import {
   Recordatorio,
 } from "../src/storage/recordatorios";
 import { colors } from "../src/theme";
+
 const DIAS = [
-  { numero: 2, nombre: "L" },
-  { numero: 3, nombre: "M" },
-  { numero: 4, nombre: "X" },
-  { numero: 5, nombre: "J" },
-  { numero: 6, nombre: "V" },
-  { numero: 7, nombre: "S" },
-  { numero: 1, nombre: "D" },
+  { numero: 2, nombre: "L", nombreCompleto: "Lunes" },
+  { numero: 3, nombre: "M", nombreCompleto: "Martes" },
+  { numero: 4, nombre: "X", nombreCompleto: "Miércoles" },
+  { numero: 5, nombre: "J", nombreCompleto: "Jueves" },
+  { numero: 6, nombre: "V", nombreCompleto: "Viernes" },
+  { numero: 7, nombre: "S", nombreCompleto: "Sábado" },
+  { numero: 1, nombre: "D", nombreCompleto: "Domingo" },
 ];
 
 export default function RecordatoriosScreen() {
@@ -266,6 +268,8 @@ export default function RecordatoriosScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
         >
           <Feather
             name="chevron-left"
@@ -439,6 +443,8 @@ export default function RecordatoriosScreen() {
                       )
                     }
                     hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Eliminar recordatorio ${recordatorio.nombre}`}
                   >
                     <Feather
                       name="trash-2"
@@ -472,6 +478,22 @@ export default function RecordatoriosScreen() {
             Nuevo recordatorio
           </Text>
         </Pressable>
+                          <Pressable
+  style={styles.diagnosticButton}
+  onPress={() =>
+    router.push("/diagnostico-notificaciones")
+  }
+>
+  <Feather
+    name="activity"
+    size={17}
+    color={colors.ink}
+  />
+
+  <Text style={styles.diagnosticText}>
+    Diagnóstico de notificaciones
+  </Text>
+</Pressable>
       </ScrollView>
 
       <Modal
@@ -482,16 +504,28 @@ export default function RecordatoriosScreen() {
           setModalVisible(false)
         }
       >
-        <View
+        <KeyboardAvoidingView
           style={styles.modalOverlay}
+          behavior={
+            Platform.OS === "ios"
+              ? "padding"
+              : "height"
+          }
         >
           <View
             style={styles.modalContainer}
           >
-            <View style={styles.modalHandle} />
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={
+                styles.modalScrollContent
+              }
+            >
+              <View style={styles.modalHandle} />
 
-            <View
-              style={styles.modalHeader}
+              <View
+                style={styles.modalHeader}
             >
               <Text
                 style={styles.modalTitle}
@@ -504,6 +538,8 @@ export default function RecordatoriosScreen() {
                   setModalVisible(false)
                 }
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
                 <Feather
                   name="x"
@@ -612,6 +648,13 @@ export default function RecordatoriosScreen() {
                         dia.numero
                       )
                     }
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      dia.nombreCompleto
+                    }
+                    accessibilityState={{
+                      selected: seleccionado,
+                    }}
                   >
                     <Text
                       style={[
@@ -666,9 +709,13 @@ export default function RecordatoriosScreen() {
                 Cancelar
               </Text>
             </Pressable>
+            </ScrollView>
+
           </View>
-        </View>
+        </KeyboardAvoidingView>
+        
       </Modal>
+
     </View>
   );
 }
@@ -891,6 +938,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    maxHeight: "88%",
+  },
+
+  modalScrollContent: {
     padding: 24,
     paddingBottom: 34,
   },
@@ -1023,4 +1074,23 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: "600",
   },
+
+  diagnosticButton: {
+  minHeight: 48,
+  borderRadius: 11,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.surface,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  marginTop: 12,
+},
+
+diagnosticText: {
+  color: colors.ink,
+  fontSize: 13,
+  fontWeight: "600",
+},
 });
