@@ -26,6 +26,12 @@ import {
   getMisCorreccionesPendientes,
   getUltimoFichaje,
 } from "../src/api/fichajes";
+
+import {
+  getGpsEnabled,
+  setGpsEnabled,
+} from "../src/storage/preferences";
+
 import { obtenerTokenFCM } from "../src/notifications/push";
 import { colors } from "../src/theme";
 
@@ -246,6 +252,23 @@ export default function HomeScreen() {
       );
     });
   };
+
+  useEffect(() => {
+  async function cargarPreferenciaGps() {
+    try {
+      const gpsActivado = await getGpsEnabled();
+
+      setUsarGps(gpsActivado);
+    } catch (error) {
+      console.error(
+        "Error cargando la preferencia del GPS:",
+        error
+      );
+    }
+  }
+
+  cargarPreferenciaGps();
+}, []);
 
   useEffect(() => {
   async function registrarTokenFCM() {
@@ -1189,25 +1212,26 @@ useEffect(() => {
           </Text>
 
           <Switch
-            value={
-              usarGps
-            }
-            onValueChange={
-              setUsarGps
-            }
-            trackColor={{
-              false:
-                colors.border,
-              true:
-                colors.accent,
-            }}
-            thumbColor={
-              colors.surface
-            }
-            ios_backgroundColor={
-              colors.border
-            }
-          />
+  value={usarGps}
+  onValueChange={async (nuevoValor) => {
+    setUsarGps(nuevoValor);
+
+    try {
+      await setGpsEnabled(nuevoValor);
+    } catch (error) {
+      console.error(
+        "Error guardando la preferencia del GPS:",
+        error
+      );
+    }
+  }}
+  trackColor={{
+    false: colors.border,
+    true: colors.accent,
+  }}
+  thumbColor={colors.surface}
+  ios_backgroundColor={colors.border}
+/>
         </View>
 
 

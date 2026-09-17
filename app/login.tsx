@@ -1,5 +1,10 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+
+import {
+  useEffect,
+  useState
+} from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +38,8 @@ import {
   setSession
 } from "../src/storage/auth";
 
+import { registrarDispositivoPush } from "../src/api/dispositivosPush";
+import { obtenerTokenFCM } from "../src/notifications/push";
 import { colors } from "../src/theme";
 
 export default function LoginScreen() {
@@ -57,7 +64,8 @@ export default function LoginScreen() {
   const [checkingBiometric, setCheckingBiometric] =
     useState(true);
 
-
+  const [shouldAutoLogin, setShouldAutoLogin] =
+  useState(false);
   /* ============================================================
      COMPROBAR BIOMETRÍA
      ============================================================ */
@@ -72,13 +80,17 @@ export default function LoginScreen() {
           await LocalAuthentication.isEnrolledAsync();
 
         const enabled =
-          await isBiometricEnabled();
+  await isBiometricEnabled();
 
-        setBiometricAvailable(
-          compatible && enrolled
-        );
+setBiometricAvailable(
+  compatible && enrolled
+);
 
-        setBiometricEnabledState(enabled);
+setBiometricEnabledState(enabled);
+
+// Solo permitimos auto-login si la biometría
+// YA estaba activada cuando se abrió esta pantalla.
+setShouldAutoLogin(enabled);
       } catch (err) {
         console.error(
           "Error comprobando biometría:",
@@ -154,6 +166,8 @@ export default function LoginScreen() {
           validatedUser
         );
 
+        await registrarPushDelDispositivo();
+
         router.replace("/home");
       } catch (err) {
         console.error(
@@ -187,21 +201,25 @@ export default function LoginScreen() {
      OFRECER BIOMETRÍA AUTOMÁTICAMENTE (auto-login al entrar)
      ============================================================ */
 
-  useEffect(() => {
-    if (
-      checkingBiometric ||
-      !biometricAvailable ||
-      !biometricEnabled
-    ) {
-      return;
-    }
+useEffect(() => {
+  if (
+    checkingBiometric ||
+    !biometricAvailable ||
+    !shouldAutoLogin
+  ) {
+    return;
+  }
 
-    handleBiometricLogin();
-  }, [
-    checkingBiometric,
-    biometricAvailable,
-    biometricEnabled,
-  ]);
+  // Consumimos el auto-login.
+  // Así solo se ejecuta una vez.
+  setShouldAutoLogin(false);
+
+  handleBiometricLogin();
+}, [
+  checkingBiometric,
+  biometricAvailable,
+  shouldAutoLogin,
+]);
 
 
   /* ============================================================
@@ -272,6 +290,25 @@ export default function LoginScreen() {
     }
   }
 
+async function registrarPushDelDispositivo() {
+  try {
+    const tokenFCM = await obtenerTokenFCM();
+
+    if (!tokenFCM) {
+      return;
+    }
+
+    await registrarDispositivoPush(tokenFCM);
+
+    console.log("Push: dispositivo registrado correctamente");
+  } catch (error) {
+    console.warn(
+      "Push: no se pudo registrar el dispositivo:",
+      error
+    );
+  }
+}
+
 
   /* ============================================================
      LOGIN NORMAL
@@ -325,6 +362,8 @@ export default function LoginScreen() {
           result.user
         );
       }
+
+      await registrarPushDelDispositivo();
 
       /**
        * Si la biometría ya estaba activada, actualizamos siempre
